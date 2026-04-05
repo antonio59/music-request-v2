@@ -5,6 +5,39 @@ All notable changes to Music Request will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-04-05
+
+### Added
+
+- **VPS Deployment Script**
+  - `deploy-vps.sh` for one-click deployment to Hostinger/DigitalOcean/Hetzner
+  - Automated systemd service setup (auto-start, auto-restart)
+  - Nginx reverse proxy configuration
+  - Let's Encrypt SSL certificate automation via Certbot
+  - Log rotation configuration
+  - Secure JWT secret generation
+  - Database seeding on first deploy
+
+- **Production Documentation**
+  - Updated README with VPS deployment instructions
+  - DNS configuration guide for custom domains
+  - Manual deployment fallback instructions
+  - Home server / Raspberry Pi deployment options
+
+### Changed
+
+- **Hosting Strategy**
+  - Migrated from Railway to self-hosted VPS (DMCA concerns)
+  - Full control over server, no content restrictions
+  - Compatible with Hostinger, DigitalOcean, Hetzner, Oracle Cloud
+
+### Security
+
+- JWT secret auto-generated with `openssl rand -hex 32`
+- System user created with restricted permissions (`/bin/false` shell)
+- systemd service runs as non-root user
+- SSL enforced via Let's Encrypt
+
 ## [2.1.0] - 2026-04-05
 
 ### Added

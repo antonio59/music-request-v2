@@ -4,12 +4,15 @@ Full-stack kid-friendly music request app with Express, SQLite, and React.
 
 ## Features
 - Kid profiles (Yoto/iPod) with themed UIs
-- Parent approval dashboard with analytics
-- YouTube search with safe filtering
+- Parent approval dashboard with Tinder-style swipe UI
+- YouTube search with safe filtering + playlist support
 - yt-dlp download pipeline
 - Internxt cloud storage integration
 - Real-time request tracking
 - Blocked keywords for content safety
+- PIN-based authentication (simple, family-friendly)
+- Dark mode + toast notifications
+- Analytics dashboard with metrics
 
 ## Quick Start
 
@@ -39,21 +42,73 @@ JWT_SECRET=your-secret-key
 YOUTUBE_API_KEY=your_youtube_api_key
 DOWNLOAD_DIR=./downloads
 DB_PATH=./data/music-request.db
+INTERNXT_EMAIL=your-email
+INTERNXT_PASSWORD=your-password
+INTERNXT_APP_KEY=your-app-key
 ```
 
-## Deploy to Netlify
+## Production Deployment
 
-Not directly supported (needs Node.js backend). Use:
-- Railway.app
-- Render.com
-- Fly.io
-- Your own VPS
+### Option 1: Hostinger VPS (Recommended)
+
+If you have a VPS (Hostinger, DigitalOcean, Hetzner, etc.):
+
+```bash
+# On your VPS, run the deployment script:
+sudo bash deploy-vps.sh
+```
+
+This script:
+- Installs Node.js, Nginx, yt-dlp, Certbot
+- Sets up systemd service (auto-start on boot)
+- Configures Nginx reverse proxy
+- Gets SSL certificate from Let's Encrypt
+- Seeds the database with default accounts
+
+After deployment, configure your DNS:
+1. Add A record: `music.antoniosmith.xyz` → your VPS IP
+2. Access via `https://music.antoniosmith.xyz`
+
+### Option 2: Manual VPS Setup
+
+See `DEPLOY_VPS.md` for step-by-step manual instructions.
+
+### Option 3: Local/Home Server
+
+Run on a Raspberry Pi or old laptop:
+```bash
+npm install
+npm run build
+npm start
+```
+
+Use Cloudflare Tunnel for public access (no port forwarding needed).
 
 ## Tech Stack
-- **Backend:** Express + SQLite (better-sqlite3)
+- **Backend:** Express 5 + SQLite (better-sqlite3)
 - **Frontend:** React 19 + Vite + TailwindCSS v4
-- **Auth:** JWT + bcrypt
+- **Auth:** Session-based with 4-digit PINs
 - **Animations:** Framer Motion
 - **State:** Zustand
 - **Downloader:** yt-dlp
 - **Storage:** Internxt SDK
+
+## Default Accounts (Development)
+
+| User | PIN | Profile |
+|------|-----|---------|
+| parent | 9999 | Parent dashboard |
+| cristina | 1234 | Yoto player |
+| isabella | 5678 | iPod |
+
+**Change these in production!** Edit `seed.js` and re-run.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request
+
+## License
+
+MIT — Built with love for the family ❤️
