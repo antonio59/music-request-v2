@@ -16,9 +16,9 @@ import {
   getBlockedKeywords,
   addBlockedKeyword,
   removeBlockedKeyword,
-} from '../server/database.js';
-import { searchYouTube } from '../server/youtube.js';
-import { downloadAndUpload } from '../server/downloader.js';
+} from '../database.js';
+import { searchYouTube } from '../youtube.js';
+import { downloadAndUpload } from '../downloader.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'music-request-secret-key-change-in-production';
