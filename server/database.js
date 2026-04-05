@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
-import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,15 +10,12 @@ const __dirname = path.dirname(__filename);
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/music-request.db');
 
 // Ensure data directory exists
-import fs from 'fs';
 const dataDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
 const db = new Database(DB_PATH);
-
-// Enable WAL mode for better concurrent performance
 db.pragma('journal_mode = WAL');
 
 // Create tables
@@ -26,10 +23,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
+    pin TEXT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('parent', 'child')),
     profile TEXT CHECK(profile IN ('yoto', 'ipod')),
     display_name TEXT,
+    avatar_emoji TEXT DEFAULT '👤',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   
@@ -46,6 +44,7 @@ db.exec(`
     duration TEXT,
     approved_by TEXT,
     approved_at DATETIME,
+    rejected_reason TEXT,
     downloaded_at DATETIME,
     internxt_url TEXT,
     error_message TEXT,
@@ -69,14 +68,13 @@ db.exec(`
 `);
 
 // Helper functions
-export function createUser(username, password, role, profile = null, displayName = null) {
+export function createUser(username, pin, role, profile = null, displayName = null, avatarEmoji = '👤') {
   const id = uuidv4();
-  const passwordHash = bcrypt.hashSync(password, 10);
   const stmt = db.prepare(
-    'INSERT INTO users (id, username, password_hash, role, profile, display_name) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO users (id, username, pin, role, profile, display_name, avatar_emoji) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
-  stmt.run(id, username, passwordHash, role, profile, displayName);
-  return { id, username, role, profile, display_name: displayName };
+  stmt.run(id, username, pin, role, profile, displayName, avatarEmoji);
+  return { id, username, role, profile, display_name: displayName, avatar_emoji: avatarEmoji };
 }
 
 export function getUserByUsername(username) {
@@ -85,12 +83,15 @@ export function getUserByUsername(username) {
 }
 
 export function getUserById(id) {
-  const stmt = db.prepare('SELECT id, username, role, profile, display_name, created_at FROM users WHERE id = ?');
+  const stmt = db.prepare('SELECT id, username, role, profile, display_name, avatar_emoji, created_at FROM users WHERE id = ?');
   return stmt.get(id);
 }
 
-export function verifyPassword(password, hash) {
-  return bcrypt.compareSync(password, hash);
+export function verifyPin(username, pin) {
+  const user = getUserByUsername(username);
+  if (!user) return null;
+  if (user.pin !== pin) return null;
+  return user;
 }
 
 // Request functions
@@ -132,11 +133,11 @@ export function approveRequest(requestId, approvedBy) {
   return getRequestById(requestId);
 }
 
-export function rejectRequest(requestId) {
+export function rejectRequest(requestId, reason) {
   const stmt = db.prepare(
-    `UPDATE requests SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+    `UPDATE requests SET status = 'rejected', rejected_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
   );
-  stmt.run(requestId);
+  stmt.run(reason, requestId);
   return getRequestById(requestId);
 }
 
@@ -178,6 +179,10 @@ export function getAnalytics() {
     'SELECT * FROM requests ORDER BY created_at DESC LIMIT 20'
   ).all();
   
+  const rejectionReasons = db.prepare(
+    "SELECT rejected_reason, COUNT(*) as count FROM requests WHERE status = 'rejected' AND rejected_reason IS NOT NULL GROUP BY rejected_reason ORDER BY count DESC"
+  ).all();
+  
   return {
     total: totalRequests,
     pending: pendingCount,
@@ -189,6 +194,7 @@ export function getAnalytics() {
     byType: { music: musicCount, audiobook: audiobookCount },
     topRequested: topRequests,
     recent: recentRequests,
+    rejectionReasons,
   };
 }
 

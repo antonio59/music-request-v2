@@ -1,20 +1,21 @@
 import { createUser } from './server/database.js';
 
-console.log('Seeding database...');
+console.log('Seeding database with PIN-based auth...');
 
 try {
-  // Create default parent account
-  createUser('parent', 'parent123', 'parent', null, 'Parent');
-  console.log('Created parent account: username=parent, password=parent123');
+  // Create parent account
+  createUser('parent', '9999', 'parent', null, 'Parent', '👨‍👩‍👧‍👦');
+  console.log('✅ Parent: username=parent, PIN=9999');
 
-  // Create default child accounts
-  createUser('yoto-kid', 'yoto123', 'child', 'yoto', 'Yoto Kid');
-  console.log('Created Yoto account: username=yoto-kid, password=yoto123');
+  // Create Cristina's Yoto account
+  createUser('cristina', '1234', 'child', 'yoto', 'Cristina', '👧');
+  console.log('✅ Cristina (Yoto): username=cristina, PIN=1234');
 
-  createUser('ipod-kid', 'ipod123', 'child', 'ipod', 'iPod Kid');
-  console.log('Created iPod account: username=ipod-kid, password=ipod123');
+  // Create Isabella's iPod account
+  createUser('isabella', '5678', 'child', 'ipod', 'Isabella', '👩');
+  console.log('✅ Isabella (iPod): username=isabella, PIN=5678');
 
-  console.log('Database seeded successfully!');
+  console.log('\n🎉 Database seeded successfully!');
 } catch (error) {
   console.error('Seed error (accounts may already exist):', error.message);
 }

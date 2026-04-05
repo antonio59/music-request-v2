@@ -1,9 +1,8 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import {
   createUser,
   getUserByUsername,
-  verifyPassword,
+  verifyPin,
   createRequest,
   getAllRequests,
   getPendingRequests,
@@ -22,20 +21,17 @@ import { searchYouTube } from '../youtube.js';
 import { downloadAndUpload } from '../downloader.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'music-request-secret-key-change-in-production';
 
-// Auth middleware
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) return res.status(401).json({ error: 'Authentication required' });
-  
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid token' });
-    req.user = user;
-    next();
-  });
+// Simple session middleware (in-memory, resets on restart)
+const sessions = new Map();
+
+function authenticateSession(req, res, next) {
+  const sessionId = req.headers['x-session-id'];
+  if (!sessionId || !sessions.has(sessionId)) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  req.user = sessions.get(sessionId);
+  next();
 }
 
 function requireParent(req, res, next) {
@@ -45,54 +41,46 @@ function requireParent(req, res, next) {
   next();
 }
 
-// Auth routes
-router.post('/auth/register', (req, res) => {
-  try {
-    const { username, password, role, profile, displayName } = req.body;
-    
-    if (getUserByUsername(username)) {
-      return res.status(400).json({ error: 'Username already exists' });
-    }
-    
-    const user = createUser(username, password, role, profile, displayName);
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, profile: user.profile },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    
-    res.json({ user, token });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
+// Auth routes - PIN-based
 router.post('/auth/login', (req, res) => {
   try {
-    const { username, password } = req.body;
-    const user = getUserByUsername(username);
+    const { username, pin } = req.body;
+    const user = verifyPin(username, pin);
     
-    if (!user || !verifyPassword(password, user.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid username or PIN' });
     }
     
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, profile: user.profile },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Create session
+    const sessionId = Math.random().toString(36).substring(2, 15);
+    sessions.set(sessionId, user);
     
     res.json({
-      user: { id: user.id, username: user.username, role: user.role, profile: user.profile, display_name: user.display_name },
-      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        profile: user.profile,
+        display_name: user.display_name,
+        avatar_emoji: user.avatar_emoji,
+      },
+      sessionId,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+router.post('/auth/logout', (req, res) => {
+  const sessionId = req.headers['x-session-id'];
+  if (sessionId) {
+    sessions.delete(sessionId);
+  }
+  res.json({ success: true });
+});
+
 // Search route
-router.get('/search', authenticateToken, async (req, res) => {
+router.get('/search', authenticateSession, async (req, res) => {
   try {
     const { q, type } = req.query;
     if (!q || q.length < 2) {
@@ -107,7 +95,7 @@ router.get('/search', authenticateToken, async (req, res) => {
 });
 
 // Request routes
-router.post('/requests', authenticateToken, (req, res) => {
+router.post('/requests', authenticateSession, (req, res) => {
   try {
     const { profile, title, url, type, searchQuery, thumbnail, duration } = req.body;
     
@@ -130,7 +118,7 @@ router.post('/requests', authenticateToken, (req, res) => {
   }
 });
 
-router.get('/requests', authenticateToken, (req, res) => {
+router.get('/requests', authenticateSession, (req, res) => {
   try {
     if (req.user.role === 'parent') {
       res.json(getAllRequests());
@@ -142,7 +130,7 @@ router.get('/requests', authenticateToken, (req, res) => {
   }
 });
 
-router.get('/requests/pending', authenticateToken, requireParent, (req, res) => {
+router.get('/requests/pending', authenticateSession, requireParent, (req, res) => {
   try {
     res.json(getPendingRequests());
   } catch (error) {
@@ -150,7 +138,7 @@ router.get('/requests/pending', authenticateToken, requireParent, (req, res) => 
   }
 });
 
-router.post('/requests/:id/approve', authenticateToken, requireParent, (req, res) => {
+router.post('/requests/:id/approve', authenticateSession, requireParent, (req, res) => {
   try {
     const request = approveRequest(req.params.id, req.user.id);
     // Trigger download in background
@@ -161,16 +149,17 @@ router.post('/requests/:id/approve', authenticateToken, requireParent, (req, res
   }
 });
 
-router.post('/requests/:id/reject', authenticateToken, requireParent, (req, res) => {
+router.post('/requests/:id/reject', authenticateSession, requireParent, (req, res) => {
   try {
-    const request = rejectRequest(req.params.id);
+    const { reason } = req.body;
+    const request = rejectRequest(req.params.id, reason || 'Not specified');
     res.json(request);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.delete('/requests/:id', authenticateToken, requireParent, (req, res) => {
+router.delete('/requests/:id', authenticateSession, requireParent, (req, res) => {
   try {
     deleteRequest(req.params.id);
     res.json({ success: true });
@@ -180,7 +169,7 @@ router.delete('/requests/:id', authenticateToken, requireParent, (req, res) => {
 });
 
 // Analytics route (parent only)
-router.get('/analytics', authenticateToken, requireParent, (req, res) => {
+router.get('/analytics', authenticateSession, requireParent, (req, res) => {
   try {
     res.json(getAnalytics());
   } catch (error) {
@@ -189,7 +178,7 @@ router.get('/analytics', authenticateToken, requireParent, (req, res) => {
 });
 
 // Blocked keywords
-router.get('/blocked-keywords', authenticateToken, requireParent, (req, res) => {
+router.get('/blocked-keywords', authenticateSession, requireParent, (req, res) => {
   try {
     res.json(getBlockedKeywords());
   } catch (error) {
@@ -197,7 +186,7 @@ router.get('/blocked-keywords', authenticateToken, requireParent, (req, res) => 
   }
 });
 
-router.post('/blocked-keywords', authenticateToken, requireParent, (req, res) => {
+router.post('/blocked-keywords', authenticateSession, requireParent, (req, res) => {
   try {
     const { keyword } = req.body;
     addBlockedKeyword(keyword, req.user.id);
@@ -207,7 +196,7 @@ router.post('/blocked-keywords', authenticateToken, requireParent, (req, res) =>
   }
 });
 
-router.delete('/blocked-keywords/:id', authenticateToken, requireParent, (req, res) => {
+router.delete('/blocked-keywords/:id', authenticateSession, requireParent, (req, res) => {
   try {
     removeBlockedKeyword(req.params.id);
     res.json({ success: true });
@@ -217,7 +206,7 @@ router.delete('/blocked-keywords/:id', authenticateToken, requireParent, (req, r
 });
 
 // Get request status (for real-time updates)
-router.get('/requests/:id/status', authenticateToken, (req, res) => {
+router.get('/requests/:id/status', authenticateSession, (req, res) => {
   try {
     const request = getRequestById(req.params.id);
     if (!request) {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../store/useStore';
 import { CheckCircle, XCircle, Clock, Download, Trash2, Shield } from 'lucide-react';
+import SwipeApprove from '../components/SwipeApprove';
 
 export default function Dashboard() {
   const { user, getPendingRequests, getRequests, approveRequest, rejectRequest, deleteRequest, showToast } = useStore();
@@ -38,6 +39,24 @@ export default function Dashboard() {
     await rejectRequest(id);
     showToast('Request rejected', 'warning');
     loadData();
+  };
+
+  const handleRejectWithReason = async (id, reason) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`/api/requests/${id}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason }),
+      });
+      showToast(`Request rejected: ${reason}`, 'warning');
+      loadData();
+    } catch (error) {
+      showToast('Failed to reject request', 'error');
+    }
   };
 
   const handleDelete = async (id) => {
@@ -78,53 +97,23 @@ export default function Dashboard() {
         {user.role === 'parent' ? 'Parent Dashboard' : 'My Requests'}
       </h1>
 
-      {user.role === 'parent' && pending.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Pending Approvals ({pending.length})</h2>
-          <AnimatePresence>
-            {pending.map((request) => (
-              <motion.div
-                key={request.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="bg-white border-2 border-gray-200 rounded-xl p-6 mb-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    {request.thumbnail && (
-                      <img src={request.thumbnail} alt="" className="w-16 h-16 rounded-lg object-cover" />
-                    )}
-                    <div>
-                      <h3 className="font-bold text-gray-800 text-lg">{request.title}</h3>
-                      <p className="text-sm text-gray-600">
-                        {request.profile === 'yoto' ? '📻 Yoto' : '🎧 iPod'} • {request.type === 'music' ? 'Music' : 'Audiobook'}
-                      </p>
-                      {request.duration && <p className="text-sm text-gray-500">{request.duration}</p>}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleApprove(request.id)}
-                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
-                    >
-                      <CheckCircle className="w-4 h-4" /> Approve
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleReject(request.id)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
-                    >
-                      <XCircle className="w-4 h-4" /> Reject
-                    </motion.button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+      {user.role === 'parent' && (
+        <div className="mb-12">
+          <h2 className="text-xl font-bold mb-6 text-center">Quick Approve</h2>
+          <p className="text-center text-gray-600 mb-8 text-sm">
+            Swipe right to approve · Swipe left to reject · Arrow keys work too!
+          </p>
+          <SwipeApprove
+            requests={pending}
+            onApprove={(id) => {
+              handleApprove(id);
+              setPending((prev) => prev.filter((r) => r.id !== id));
+            }}
+            onReject={(id, reason) => {
+              handleRejectWithReason(id, reason);
+              setPending((prev) => prev.filter((r) => r.id !== id));
+            }}
+          />
         </div>
       )}
 
