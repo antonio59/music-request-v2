@@ -1,106 +1,149 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../store/useStore';
-import { Hash, User } from 'lucide-react';
+import { User, Lock, ArrowLeft } from 'lucide-react';
+
+const PROFILES = [
+  { id: 'cristina', username: 'cristina', name: 'Cristina', emoji: '👧', color: 'from-yellow-400 to-orange-500', pinLength: 6 },
+  { id: 'isabella', username: 'isabella', name: 'Isabella', emoji: '👩', color: 'from-blue-400 to-purple-500', pinLength: 6 },
+  { id: 'parent', username: 'parent', name: 'Parent', emoji: '👨‍👩‍👧‍👦', color: 'from-gray-700 to-gray-900', pinLength: 6 },
+];
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [selectedProfile, setSelectedProfile] = useState(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const { login, showToast } = useStore();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    const result = await login(username, pin);
-    
-    if (!result.success) {
-      setError(result.error);
-      showToast('Login failed', 'error');
-    } else {
-      showToast('Welcome back! 🎵', 'success');
+  const handlePinPress = async (num) => {
+    if (pin.length < 6) {
+      const newPin = pin + num;
+      setPin(newPin);
+      
+      if (newPin.length === 6 && selectedProfile) {
+        // Auto-submit when 6 digits are entered
+        const result = await login(selectedProfile.username, newPin);
+        if (!result.success) {
+          setError('Incorrect PIN. Try again!');
+          showToast('Login failed', 'error');
+          setPin('');
+          setTimeout(() => setError(''), 2000);
+        } else {
+          showToast(`Welcome back, ${selectedProfile.name}! 🎵`, 'success');
+        }
+      }
     }
   };
 
+  const handleBackspace = () => setPin(pin.slice(0, -1));
+  
+  const handleBack = () => {
+    setSelectedProfile(null);
+    setPin('');
+    setError('');
+  };
+
+  // Profile Selection View
+  if (!selectedProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4">
+        <div className="text-center w-full max-w-4xl">
+          <motion.h1 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl font-bold mb-12 text-gray-800"
+          >
+            Who is listening? 🎧
+          </motion.h1>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {PROFILES.map((profile, i) => (
+              <motion.button
+                key={profile.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSelectedProfile(profile)}
+                className={`bg-gradient-to-br ${profile.color} p-8 rounded-3xl shadow-xl text-white flex flex-col items-center gap-4`}
+              >
+                <span className="text-7xl">{profile.emoji}</span>
+                <span className="text-2xl font-bold">{profile.name}</span>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // PIN Pad View
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-400 via-pink-400 to-blue-400 p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md"
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4">
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm"
       >
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🎵</div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            Music Request
-          </h1>
-          <p className="text-gray-600 mt-2">Enter your PIN to get started</p>
+        <div className="flex items-center justify-between mb-8">
+          <button onClick={handleBack} className="text-gray-400 hover:text-gray-600">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{selectedProfile.emoji}</span>
+            <span className="font-bold text-gray-700">{selectedProfile.name}</span>
+          </div>
+          <div className="w-6"></div>
         </div>
 
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"
-          >
-            {error}
-          </motion.div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase().trim())}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
-                placeholder="e.g., cristina, isabella, parent"
-                required
-                autoComplete="username"
+        <div className="text-center mb-8">
+          <Lock className="w-8 h-8 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800">Enter your PIN</h2>
+          
+          {/* PIN Dots */}
+          <div className="flex justify-center gap-3 mt-6">
+            {[...Array(6)].map((_, i) => (
+              <div 
+                key={i}
+                className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                  i < pin.length ? 'bg-purple-600 scale-110' : 'bg-gray-200'
+                }`}
               />
-            </div>
+            ))}
           </div>
+          {error && <p className="text-red-500 text-sm mt-4 font-medium">{error}</p>}
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">PIN</label>
-            <div className="relative">
-              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none text-center text-2xl tracking-widest"
-                placeholder="••••"
-                maxLength={4}
-                required
-                autoComplete="current-password"
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-2 text-center">4-digit PIN</p>
+        {/* Custom PIN Pad */}
+        <div className="grid grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+            <motion.button
+              key={num}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => handlePinPress(num.toString())}
+              className="bg-gray-50 hover:bg-gray-100 text-gray-800 text-2xl font-bold py-4 rounded-2xl transition-colors"
+            >
+              {num}
+            </motion.button>
+          ))}
+          <div className="flex items-center justify-center">
+            {/* Empty space for alignment */}
           </div>
-
           <motion.button
-            type="submit"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-lg font-bold text-lg hover:shadow-lg transition-shadow"
+            whileTap={{ scale: 0.9 }}
+            onClick={() => handlePinPress('0')}
+            className="bg-gray-50 hover:bg-gray-100 text-gray-800 text-2xl font-bold py-4 rounded-2xl transition-colors"
           >
-            Login
+            0
           </motion.button>
-        </form>
-
-        {/* Quick reference */}
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
-          <p className="font-medium mb-2 text-center">Demo Accounts:</p>
-          <div className="space-y-1 text-xs">
-            <p>👧 Cristina (Yoto): <code className="bg-white px-2 py-1 rounded">cristina</code> / <code className="bg-white px-2 py-1 rounded">1234</code></p>
-            <p>👩 Isabella (iPod): <code className="bg-white px-2 py-1 rounded">isabella</code> / <code className="bg-white px-2 py-1 rounded">5678</code></p>
-            <p>👨‍👩‍👧‍👦 Parent: <code className="bg-white px-2 py-1 rounded">parent</code> / <code className="bg-white px-2 py-1 rounded">9999</code></p>
-          </div>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={handleBackspace}
+            className="text-gray-400 hover:text-gray-600 flex items-center justify-center"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </motion.button>
         </div>
       </motion.div>
     </div>
