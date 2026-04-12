@@ -1,4 +1,7 @@
-import express from 'express';
+import express from "express";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import {
   createUser,
   getUserByUsername,
@@ -16,9 +19,14 @@ import {
   addBlockedKeyword,
   removeBlockedKeyword,
   getRequestById,
-} from '../database.js';
-import { searchYouTube } from '../youtube.js';
-import { downloadAndUpload } from '../downloader.js';
+} from "../database.js";
+import { searchYouTube } from "../youtube.js";
+import { downloadAndUpload } from "../downloader.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DOWNLOAD_DIR =
+  process.env.DOWNLOAD_DIR || path.join(__dirname, "../../downloads");
 
 const router = express.Router();
 
@@ -26,35 +34,35 @@ const router = express.Router();
 const sessions = new Map();
 
 function authenticateSession(req, res, next) {
-  const sessionId = req.headers['x-session-id'];
+  const sessionId = req.headers["x-session-id"];
   if (!sessionId || !sessions.has(sessionId)) {
-    return res.status(401).json({ error: 'Not authenticated' });
+    return res.status(401).json({ error: "Not authenticated" });
   }
   req.user = sessions.get(sessionId);
   next();
 }
 
 function requireParent(req, res, next) {
-  if (req.user.role !== 'parent') {
-    return res.status(403).json({ error: 'Parent access required' });
+  if (req.user.role !== "parent") {
+    return res.status(403).json({ error: "Parent access required" });
   }
   next();
 }
 
 // Auth routes - PIN-based
-router.post('/auth/login', (req, res) => {
+router.post("/auth/login", (req, res) => {
   try {
     const { username, pin } = req.body;
     const user = verifyPin(username, pin);
-    
+
     if (!user) {
-      return res.status(401).json({ error: 'Invalid username or PIN' });
+      return res.status(401).json({ error: "Invalid username or PIN" });
     }
-    
+
     // Create session
     const sessionId = Math.random().toString(36).substring(2, 15);
     sessions.set(sessionId, user);
-    
+
     res.json({
       user: {
         id: user.id,
@@ -71,8 +79,8 @@ router.post('/auth/login', (req, res) => {
   }
 });
 
-router.post('/auth/logout', (req, res) => {
-  const sessionId = req.headers['x-session-id'];
+router.post("/auth/logout", (req, res) => {
+  const sessionId = req.headers["x-session-id"];
   if (sessionId) {
     sessions.delete(sessionId);
   }
@@ -80,14 +88,14 @@ router.post('/auth/logout', (req, res) => {
 });
 
 // Search route
-router.get('/search', authenticateSession, async (req, res) => {
+router.get("/search", authenticateSession, async (req, res) => {
   try {
     const { q, type } = req.query;
     if (!q || q.length < 2) {
       return res.json([]);
     }
-    
-    const results = await searchYouTube(q, type || 'music');
+
+    const results = await searchYouTube(q, type || "music");
     res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -95,32 +103,44 @@ router.get('/search', authenticateSession, async (req, res) => {
 });
 
 // Request routes
-router.post('/requests', authenticateSession, (req, res) => {
+router.post("/requests", authenticateSession, (req, res) => {
   try {
-    const { profile, title, url, type, searchQuery, thumbnail, duration } = req.body;
-    
+    const { profile, title, url, type, searchQuery, thumbnail, duration } =
+      req.body;
+
     // Check for blocked keywords
     const blockedKeywords = getBlockedKeywords();
     const titleLower = title.toLowerCase();
-    const violations = blockedKeywords.filter(kw => titleLower.includes(kw.keyword));
-    
+    const violations = blockedKeywords.filter((kw) =>
+      titleLower.includes(kw.keyword),
+    );
+
     if (violations.length > 0) {
-      return res.status(400).json({ 
-        error: 'Content blocked',
-        violations: violations.map(kw => kw.keyword)
+      return res.status(400).json({
+        error: "Content blocked",
+        violations: violations.map((kw) => kw.keyword),
       });
     }
-    
-    const request = createRequest(req.user.id, profile, title, url, type, searchQuery, thumbnail, duration);
+
+    const request = createRequest(
+      req.user.id,
+      profile,
+      title,
+      url,
+      type,
+      searchQuery,
+      thumbnail,
+      duration,
+    );
     res.json(request);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.get('/requests', authenticateSession, (req, res) => {
+router.get("/requests", authenticateSession, (req, res) => {
   try {
-    if (req.user.role === 'parent') {
+    if (req.user.role === "parent") {
       res.json(getAllRequests());
     } else {
       res.json(getRequestsByProfile(req.user.profile));
@@ -130,46 +150,66 @@ router.get('/requests', authenticateSession, (req, res) => {
   }
 });
 
-router.get('/requests/pending', authenticateSession, requireParent, (req, res) => {
-  try {
-    res.json(getPendingRequests());
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+router.get(
+  "/requests/pending",
+  authenticateSession,
+  requireParent,
+  (req, res) => {
+    try {
+      res.json(getPendingRequests());
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
-router.post('/requests/:id/approve', authenticateSession, requireParent, (req, res) => {
-  try {
-    const request = approveRequest(req.params.id, req.user.id);
-    // Trigger download in background
-    downloadAndUpload(request).catch(console.error);
-    res.json(request);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+router.post(
+  "/requests/:id/approve",
+  authenticateSession,
+  requireParent,
+  (req, res) => {
+    try {
+      const request = approveRequest(req.params.id, req.user.id);
+      // Trigger download in background
+      downloadAndUpload(request).catch(console.error);
+      res.json(request);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
-router.post('/requests/:id/reject', authenticateSession, requireParent, (req, res) => {
-  try {
-    const { reason } = req.body;
-    const request = rejectRequest(req.params.id, reason || 'Not specified');
-    res.json(request);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+router.post(
+  "/requests/:id/reject",
+  authenticateSession,
+  requireParent,
+  (req, res) => {
+    try {
+      const { reason } = req.body;
+      const request = rejectRequest(req.params.id, reason || "Not specified");
+      res.json(request);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
-router.delete('/requests/:id', authenticateSession, requireParent, (req, res) => {
-  try {
-    deleteRequest(req.params.id);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+router.delete(
+  "/requests/:id",
+  authenticateSession,
+  requireParent,
+  (req, res) => {
+    try {
+      deleteRequest(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
 // Analytics route (parent only)
-router.get('/analytics', authenticateSession, requireParent, (req, res) => {
+router.get("/analytics", authenticateSession, requireParent, (req, res) => {
   try {
     res.json(getAnalytics());
   } catch (error) {
@@ -178,41 +218,78 @@ router.get('/analytics', authenticateSession, requireParent, (req, res) => {
 });
 
 // Blocked keywords
-router.get('/blocked-keywords', authenticateSession, requireParent, (req, res) => {
-  try {
-    res.json(getBlockedKeywords());
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+router.get(
+  "/blocked-keywords",
+  authenticateSession,
+  requireParent,
+  (req, res) => {
+    try {
+      res.json(getBlockedKeywords());
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
-router.post('/blocked-keywords', authenticateSession, requireParent, (req, res) => {
-  try {
-    const { keyword } = req.body;
-    addBlockedKeyword(keyword, req.user.id);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+router.post(
+  "/blocked-keywords",
+  authenticateSession,
+  requireParent,
+  (req, res) => {
+    try {
+      const { keyword } = req.body;
+      addBlockedKeyword(keyword, req.user.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
-router.delete('/blocked-keywords/:id', authenticateSession, requireParent, (req, res) => {
+router.delete(
+  "/blocked-keywords/:id",
+  authenticateSession,
+  requireParent,
+  (req, res) => {
+    try {
+      removeBlockedKeyword(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+// Download files (authenticated)
+router.get("/downloads/:profile/:filename", authenticateSession, (req, res) => {
   try {
-    removeBlockedKeyword(req.params.id);
-    res.json({ success: true });
+    const { profile, filename } = req.params;
+    if (!["yoto", "ipod"].includes(profile)) {
+      return res.status(400).json({ error: "Invalid profile" });
+    }
+    const safeName = path.basename(filename);
+    const filePath = path.join(DOWNLOAD_DIR, profile, safeName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    res.download(filePath, safeName);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 // Get request status (for real-time updates)
-router.get('/requests/:id/status', authenticateSession, (req, res) => {
+router.get("/requests/:id/status", authenticateSession, (req, res) => {
   try {
     const request = getRequestById(req.params.id);
     if (!request) {
-      return res.status(404).json({ error: 'Request not found' });
+      return res.status(404).json({ error: "Request not found" });
     }
-    res.json({ status: request.status, internxt_url: request.internxt_url, error_message: request.error_message });
+    res.json({
+      status: request.status,
+      download_url: request.internxt_url,
+      error_message: request.error_message,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -58,12 +58,9 @@ NODE_ENV=production
 DB_PATH=$APP_DIR/data/music-request.db
 DOWNLOAD_DIR=$APP_DIR/downloads
 YOUTUBE_API_KEY=
-INTERNXT_EMAIL=
-INTERNXT_PASSWORD=
-INTERNXT_APP_KEY=
 EOF
     echo "✅ .env created with secure JWT_SECRET"
-    echo "⚠️  Edit .env to add YouTube/Internxt credentials if needed"
+    echo "⚠️  Edit .env to add YouTube API key if needed"
 else
     echo "✅ .env already exists"
 fi
