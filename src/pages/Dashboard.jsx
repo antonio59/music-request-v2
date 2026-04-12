@@ -189,11 +189,10 @@ export default function Dashboard() {
               {request.internxt_url && (
                 <a
                   href={request.internxt_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2 block"
                 >
-                  Download from Internxt →
+                  Download File →
                 </a>
               )}
             </motion.div>

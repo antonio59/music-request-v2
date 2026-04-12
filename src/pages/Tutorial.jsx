@@ -45,8 +45,8 @@ export default function Tutorial() {
               },
               {
                 num: 3,
-                title: "Download from Internxt",
-                desc: "Once approved, the track will be available in your Internxt cloud storage folder.",
+                title: "Download to Your Device",
+                desc: "Once approved, the track will be available to download from the dashboard.",
               },
               {
                 num: 4,
@@ -114,8 +114,8 @@ export default function Tutorial() {
               },
               {
                 num: 3,
-                title: "Download from Internxt",
-                desc: "Download the track to your computer from Internxt cloud storage.",
+                title: "Download to Your Device",
+                desc: "Once approved, download the track from the dashboard to your computer.",
               },
               {
                 num: 4,
