@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useStore from "../store/useStore";
 import { User, Lock, ArrowLeft } from "lucide-react";
@@ -35,33 +35,61 @@ export default function Login() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const { login, showToast } = useStore();
+  const handlersRef = useRef({});
 
   const handlePinPress = async (num) => {
-    if (pin.length < 6) {
-      const newPin = pin + num;
-      setPin(newPin);
+    setPin((currentPin) => {
+      if (currentPin.length >= 6) return currentPin;
+      const newPin = currentPin + num;
 
       if (newPin.length === 6 && selectedProfile) {
-        const result = await login(selectedProfile.username, newPin);
-        if (!result.success) {
-          setError("Incorrect PIN. Try again!");
-          showToast("Login failed", "error");
-          setPin("");
-          setTimeout(() => setError(""), 2000);
-        } else {
-          showToast(`Welcome back, ${selectedProfile.name}! 🎵`, "success");
-        }
+        login(selectedProfile.username, newPin).then((result) => {
+          if (!result.success) {
+            setError(result.error || "Incorrect PIN. Try again!");
+            showToast("Login failed", "error");
+            setPin("");
+            setTimeout(() => setError(""), 3000);
+          } else {
+            showToast(`Welcome back, ${selectedProfile.name}! 🎵`, "success");
+          }
+        });
       }
-    }
+      return newPin;
+    });
   };
 
-  const handleBackspace = () => setPin(pin.slice(0, -1));
+  const handleBackspace = () => setPin((p) => p.slice(0, -1));
 
   const handleBack = () => {
     setSelectedProfile(null);
     setPin("");
     setError("");
   };
+
+  // Keep latest handlers in a ref so keyboard listener doesn't re-bind every render
+  handlersRef.current = { handlePinPress, handleBackspace, handleBack };
+
+  useEffect(() => {
+    if (!selectedProfile) return;
+
+    const handleKeyDown = (e) => {
+      const { handlePinPress, handleBackspace, handleBack } = handlersRef.current;
+
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault();
+        handlePinPress(e.key);
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        handleBackspace();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleBack();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedProfile]);
 
   if (!selectedProfile) {
     return (
@@ -149,6 +177,7 @@ export default function Login() {
               key={num}
               whileTap={{ scale: 0.9 }}
               onClick={() => handlePinPress(num.toString())}
+              aria-label={`PIN digit ${num}`}
               className="bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-2xl font-bold py-4 rounded-2xl transition-colors"
             >
               {num}
@@ -158,6 +187,7 @@ export default function Login() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => handlePinPress("0")}
+            aria-label="PIN digit 0"
             className="bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-2xl font-bold py-4 rounded-2xl transition-colors"
           >
             0
@@ -165,6 +195,7 @@ export default function Login() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={handleBackspace}
+            aria-label="Backspace"
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center"
           >
             <ArrowLeft className="w-6 h-6" />

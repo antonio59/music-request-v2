@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const useStore = create((set, get) => ({
   // Auth state
@@ -32,7 +32,9 @@ const useStore = create((set, get) => ({
       set({ user, sessionId, isAuthenticated: true });
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.response?.data?.error || 'Login failed' };
+      const message = error.response?.data?.error 
+        || (error.code === 'ERR_NETWORK' ? 'Cannot reach server. Please check your connection.' : 'Login failed');
+      return { success: false, error: message };
     }
   },
   
