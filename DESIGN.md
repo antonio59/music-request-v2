@@ -9,10 +9,6 @@ colors:
   on-primary-container: "#5B21B6"
   secondary: "#DB2777"
   on-secondary: "#FFFFFF"
-  secondary-container: "#FCE7F3"
-  on-secondary-container: "#9D174D"
-  tertiary: "#2563EB"
-  on-tertiary: "#FFFFFF"
   tertiary-container: "#DBEAFE"
   on-tertiary-container: "#1E40AF"
   surface: "#FFFFFF"
@@ -20,19 +16,15 @@ colors:
   surface-variant: "#F3F4F6"
   on-surface-variant: "#4B5563"
   outline: "#E5E7EB"
-  background: "#F9FAFB"
   error: "#EF4444"
   on-error: "#FFFFFF"
   success: "#22C55E"
   on-success: "#FFFFFF"
-  warning: "#F59E0B"
-  on-warning: "#FFFFFF"
-  dark-surface: "#1F2937"
-  dark-on-surface: "#E5E7EB"
-  dark-surface-variant: "#374151"
-  dark-on-surface-variant: "#9CA3AF"
-  dark-background: "#1A1A2E"
-  dark-outline: "#374151"
+  success-container: "#DCFCE7"
+  error-container: "#FEE2E2"
+  on-error-container: "#991B1B"
+  warning-container: "#FEF3C7"
+
 typography:
   display:
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
@@ -120,6 +112,12 @@ components:
     textColor: "{colors.on-surface}"
     rounded: "{rounded.2xl}"
     padding: "24px"
+  page-background:
+    backgroundColor: "#F9FAFB"
+    textColor: "{colors.on-surface}"
+  page-background-dark:
+    backgroundColor: "#1A1A2E"
+    textColor: "#E5E7EB"
   card-elevated:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.on-surface}"
@@ -144,15 +142,120 @@ components:
     rounded: "{rounded.full}"
     size: "16px"
   toast-success:
-    backgroundColor: "#15803D"
-    textColor: "{colors.on-success}"
-    rounded: "{rounded.lg}"
-    padding: "12px 20px"
+    backgroundColor: "{colors.success-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "16px 24px"
   toast-error:
-    backgroundColor: "#B91C1C"
+    backgroundColor: "{colors.error-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "16px 24px"
+  toast-warning:
+    backgroundColor: "{colors.warning-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "16px 24px"
+  toast-info:
+    backgroundColor: "{colors.tertiary-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "16px 24px"
+  swipe-card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.2xl}"
+    padding: "24px"
+  swipe-overlay-approve:
+    backgroundColor: "{colors.success}"
+    textColor: "{colors.on-success}"
+    rounded: "{rounded.full}"
+    typography: "{typography.label}"
+  swipe-overlay-reject:
+    backgroundColor: "{colors.error}"
     textColor: "{colors.on-error}"
+    rounded: "{rounded.full}"
+    typography: "{typography.label}"
+  status-badge-pending:
+    backgroundColor: "{colors.warning-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "4px 12px"
+  status-badge-approved:
+    backgroundColor: "{colors.success-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "4px 12px"
+  status-badge-rejected:
+    backgroundColor: "{colors.error-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "4px 12px"
+  status-badge-downloading:
+    backgroundColor: "{colors.tertiary-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "4px 12px"
+  status-badge-completed:
+    backgroundColor: "#DCFCE7"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "4px 12px"
+  status-badge-failed:
+    backgroundColor: "{colors.error-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.xl}"
+    padding: "4px 12px"
+  tag-purple:
+    backgroundColor: "{colors.primary-container}"
+    textColor: "{colors.on-primary-container}"
+    rounded: "{rounded.full}"
+    padding: "4px 12px"
+    typography: "{typography.body-sm}"
+  tag-blue:
+    backgroundColor: "{colors.tertiary-container}"
+    textColor: "{colors.on-tertiary-container}"
+    rounded: "{rounded.full}"
+    padding: "4px 12px"
+    typography: "{typography.body-sm}"
+  tag-red:
+    backgroundColor: "{colors.error-container}"
+    textColor: "{colors.on-error-container}"
+    rounded: "{rounded.full}"
+    padding: "4px 12px"
+    typography: "{typography.body-sm}"
+  segmented-control-active:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
     rounded: "{rounded.lg}"
-    padding: "12px 20px"
+    padding: "12px 16px"
+    typography: "{typography.label}"
+  segmented-control-inactive:
+    backgroundColor: "{colors.surface-variant}"
+    textColor: "{colors.on-surface-variant}"
+    rounded: "{rounded.lg}"
+    padding: "12px 16px"
+    typography: "{typography.label}"
+  search-result-item:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.none}"
+    padding: "12px 16px"
+  search-result-item-hover:
+    backgroundColor: "{colors.primary-container}"
+    textColor: "{colors.on-primary-container}"
+  modal-backdrop:
+    backgroundColor: "rgba(0, 0, 0, 0.5)"
+  modal-content:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.2xl}"
+    padding: "24px"
+  success-state-card:
+    backgroundColor: "{colors.success-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.2xl}"
+    padding: "48px"
   profile-card-yoto:
     backgroundColor: "linear-gradient(135deg, #FACC15, #F97316)"
     textColor: "#FFFFFF"
@@ -226,9 +329,10 @@ The layout follows a **single-column centered container** with generous breathin
 Elevation is expressed through **shadows** rather than borders, creating a soft, floating aesthetic.
 
 - **Navbar:** `shadow-md` — subtle separation from content.
-- **Cards:** `shadow-xl` — prominent lift for content containers.
-- **Modals/Toasts:** `shadow-2xl` — highest elevation for overlay elements.
-- **Buttons:** No shadow at rest, `scale(1.05)` on hover for tactile feedback.
+- **Standard Cards:** `shadow-xl` — prominent lift for content containers (search form, request lists).
+- **Elevated Cards / Swipe Cards / Modals:** `shadow-2xl` — highest elevation for draggable cards and overlay modals.
+- **Toasts:** `shadow-lg` — mid-level elevation for notifications.
+- **Buttons:** No shadow at rest, `scale(1.02)` on hover for tactile feedback. Primary action uses `hover:shadow-lg`.
 - **PIN pad keys:** `bg-gray-50` with subtle hover shift — flat but tactile.
 
 Dark mode uses **surface color shifts** rather than shadows for depth, since shadows are less visible on dark backgrounds.
@@ -258,8 +362,9 @@ JamJar is aggressively rounded — every corner is softened to feel approachable
 
 ### Inputs
 
-- **Text Input:** Light gray background (`surface-variant`), 16px radius, 12px 16px padding. No border at rest; focus state adds a 2px violet ring.
+- **Text Input:** White/dark gray background, 16px radius, 12px 16px padding. `border-2 border-gray-200` at rest; focus state changes border color to `purple-500` with `outline-none`.
 - **PIN Dots:** 16px circles, filled violet when entered, gray outline when empty. Spring animation on fill.
+- **Textarea:** Same treatment as text input, used for custom rejection reasons in the reject modal.
 
 ### Navigation
 
@@ -268,8 +373,10 @@ JamJar is aggressively rounded — every corner is softened to feel approachable
 
 ### Toast Notifications
 
-- **Success:** Green background, white text, 12px radius, slides in from top-right with Framer Motion.
-- **Error:** Red background, white text.
+- **Success:** Light green background (`success-container`) with green border, gray text, 16px radius, `shadow-lg`, slides in from top-right with Framer Motion.
+- **Error:** Light red background (`error-container`) with red border, gray text.
+- **Warning:** Light amber background (`warning-container`) with amber border, gray text.
+- **Info:** Light blue background (`tertiary-container`) with blue border, gray text.
 - **Auto-dismiss:** 3 seconds with exit animation.
 
 ### Status Badges
