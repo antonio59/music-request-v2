@@ -46,12 +46,7 @@ Wait 5-30 minutes for DNS propagation.
 
 ### 4. Access the app
 
-Open `https://music.antoniosmith.xyz` in your browser.
-
-**Default accounts:**
-- Parent: `parent` / `9999`
-- Cristina: `cristina` / `1234`
-- Isabella: `isabella` / `5678`
+Open `https://jamjar.antoniosmith.xyz` in your browser.
 
 ## Post-Deployment
 
@@ -138,7 +133,7 @@ systemctl restart jamjar
 1. Check service status: `systemctl status jamjar`
 2. Check logs: `journalctl -u jamjar -f`
 3. Check Nginx: `systemctl status nginx`
-4. Check DNS: `nslookup music.antoniosmith.xyz`
+4. Check DNS: `nslookup jamjar.antoniosmith.xyz`
 
 ### SSL not working
 

@@ -104,18 +104,9 @@ Without yt-dlp, downloads are simulated for demo purposes.
 
 This app needs a Node.js backend (not static hosting). Recommended platforms:
 
-- **Railway.app** — Easiest setup, free tier available
+- **Your own VPS** — Full control (recommended)
 - **Render.com** — Free tier, auto-deploy from GitHub
 - **Fly.io** — Great for global deployment
-- **Your own VPS** — Full control
-
-### Deploy to Railway
-
-1. Connect your GitHub repo to Railway
-2. Add environment variables in Railway dashboard
-3. Deploy!
-
-### Deploy to Render
 
 1. Create a "Web Service" on Render
 2. Connect GitHub repo

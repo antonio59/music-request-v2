@@ -10,7 +10,7 @@ echo "========================================="
 # Configuration
 APP_DIR="/opt/jamjar"
 APP_USER="jamjar"
-DOMAIN="music.antoniosmith.xyz"
+DOMAIN="jamjar.antoniosmith.xyz"
 PORT=3001
 
 # Colors
@@ -144,10 +144,8 @@ echo "App URL: https://$DOMAIN"
 echo "Service status: systemctl status jamjar"
 echo "Logs: journalctl -u jamjar -f"
 echo ""
-echo "Default Accounts:"
-echo "  Parent: parent / 9999"
-echo "  Cristina: cristina / 1234"
-echo "  Isabella: isabella / 5678"
+echo "Default accounts are seeded automatically."
+echo "Change PINs in seed.js and re-run 'node seed.js' for production."
 echo ""
 echo "⚠️  IMPORTANT: Change default PINs in seed.js and re-run 'node seed.js' if needed"
 echo ""

@@ -17,13 +17,13 @@ A **kid-friendly music/audiobook request app** with:
 ## Architecture
 
 ```
-Nieces' Devices → Railway (Express + SQLite) → Internxt (file storage)
+Kids' Devices → VPS (Express + SQLite) → Internxt (file storage)
                        ↑
-                  Environment variables live here
-                  NOT on your local machine
+              Environment variables live here
+              Nginx reverse proxy + SSL
 ```
 
-**Your Mac goes offline → App still works** because it's deployed on Railway's cloud servers.
+**Your Mac goes offline → App still works** because it's deployed on your VPS.
 
 ## Quick Start (Local Testing)
 
@@ -35,31 +35,21 @@ npm run dev
 
 Open http://localhost:3000
 
-### Default Accounts
+## Deploy to VPS (Production)
 
-| Who | Username | PIN | Profile |
-|-----|----------|-----|---------|
-| 👨‍👩‍👧‍👦 Parent | `parent` | `9999` | Dashboard |
-| 👧 Cristina | `cristina` | `1234` | Yoto |
-| 👩 Isabella | `isabella` | `5678` | iPod |
-
-## Deploy to Railway (Production)
-
-**Full guide:** `DEPLOY_RAILWAY.md`
+**Full guide:** `DEPLOY_VPS.md`
 
 **Quick version:**
-1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
-2. Select `antonio59/jamjar`
-3. Add environment variables in Railway dashboard
-4. Add persistent storage at `/app/data`
-5. Run `npm run seed` in Railway Shell
-6. Done! Live at `https://your-app.up.railway.app`
+1. SSH into your VPS
+2. Run `sudo bash deploy-vps.sh`
+3. Add DNS A record: `jamjar.antoniosmith.xyz` → your VPS IP
+4. Done! Live at `https://jamjar.antoniosmith.xyz`
 
-**Cost:** Free tier (500 hrs/month) or $5/mo for always-on.
+**Cost:** ~$5-10/mo for VPS + domain.
 
 ## How It Works
 
-### For Kids (Cristina/Isabella)
+### For Kids
 
 1. **Login** with username + 4-digit PIN
 2. **Search** for music or audiobooks
@@ -103,9 +93,9 @@ Kid requests song → Parent approves → yt-dlp downloads
 **Storage:**
 - SQLite database: Request metadata, user accounts
 - Internxt: Actual audio files (MP3)
-- Railway server: Temporary download cache (cleaned after upload)
+- VPS server: Temporary download cache (cleaned after upload)
 
-## Environment Variables (Railway)
+## Environment Variables
 
 ```env
 JWT_SECRET=random-string-here
@@ -133,14 +123,16 @@ NODE_ENV=production
 - **State:** Zustand
 - **Downloader:** yt-dlp
 - **Storage:** Internxt SDK
-- **Deploy:** Railway.app
+- **Deploy:** Self-hosted VPS
 
 ## Costs
 
-- **Railway:** Free (500 hrs) or $5/mo always-on
+- **VPS:** ~$5-10/mo (Hostinger, DigitalOcean, Hetzner, etc.)
+- **Domain:** ~$10/year
+- **SSL:** Free (Let's Encrypt)
 - **Internxt:** Free tier available (10GB)
 - **YouTube API:** Free (up to 10,000 queries/day)
-- **Domain:** Free `*.railway.app` or your own
+- **Total:** ~$6-11/mo
 
 ## Repo
 
@@ -149,15 +141,15 @@ NODE_ENV=production
 **Docs:**
 - `README.md` — Overview
 - `QUICKSTART.md` — Local setup
-- `DEPLOY_RAILWAY.md` — Production deployment
+- `DEPLOY_VPS.md` — Production deployment
 - `CHANGELOG.md` — Version history
 
 ## Next Steps
 
-1. **Deploy to Railway** (10 min)
-2. **Test with Cristina & Isabella** (let them try it!)
+1. **Deploy to VPS** (10 min)
+2. **Test with the kids** (let them try it!)
 3. **Add YouTube API key** (for real search)
-4. **Install yt-dlp** on Railway (for real downloads)
+4. **Install yt-dlp** on the VPS (for real downloads)
 5. **Add Internxt credentials** (for cloud uploads)
 6. **Enjoy!** 🎶
 

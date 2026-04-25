@@ -66,8 +66,8 @@ This script:
 - Seeds the database with default accounts
 
 After deployment, configure your DNS:
-1. Add A record: `music.antoniosmith.xyz` → your VPS IP
-2. Access via `https://music.antoniosmith.xyz`
+1. Add A record: `jamjar.antoniosmith.xyz` → your VPS IP
+2. Access via `https://jamjar.antoniosmith.xyz`
 
 ### Option 2: Manual VPS Setup
 
@@ -92,16 +92,6 @@ Use Cloudflare Tunnel for public access (no port forwarding needed).
 - **State:** Zustand
 - **Downloader:** yt-dlp
 - **Storage:** Internxt SDK
-
-## Default Accounts (Development)
-
-| User | PIN | Profile |
-|------|-----|---------|
-| parent | 9999 | Parent dashboard |
-| cristina | 1234 | Yoto player |
-| isabella | 5678 | iPod |
-
-**Change these in production!** Edit `seed.js` and re-run.
 
 ## Contributing
 
