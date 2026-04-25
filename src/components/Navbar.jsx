@@ -19,7 +19,7 @@ export default function Navbar() {
           to="/"
           className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent"
         >
-          🎵 Music Request
+          🫙 JamJar
         </Link>
         <div className="flex items-center gap-6">
           {user.role === "child" && (

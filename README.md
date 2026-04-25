@@ -1,6 +1,6 @@
-# Music Request v2 🎵
+# JamJar 🫙
 
-Full-stack kid-friendly music request app with Express, SQLite, and React.
+Full-stack family music request app with Express, SQLite, and React.
 
 ## Features
 - Kid profiles (Yoto/iPod) with themed UIs
@@ -41,7 +41,7 @@ PORT=3001
 JWT_SECRET=your-secret-key
 YOUTUBE_API_KEY=your_youtube_api_key
 DOWNLOAD_DIR=./downloads
-DB_PATH=./data/music-request.db
+DB_PATH=./data/jamjar.db
 INTERNXT_EMAIL=your-email
 INTERNXT_PASSWORD=your-password
 INTERNXT_APP_KEY=your-app-key

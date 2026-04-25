@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e
 
-# Music Request v2.2.0 - Hostinger VPS Deployment Script
+# JamJar v2.2.0 - Hostinger VPS Deployment Script
 # Usage: sudo bash deploy-vps.sh
 
-echo "🎵 Music Request v2.2.0 - VPS Deployment"
+echo "🫙 JamJar v2.2.0 - VPS Deployment"
 echo "========================================="
 
 # Configuration
-APP_DIR="/opt/music-request"
-APP_USER="music-request"
+APP_DIR="/opt/jamjar"
+APP_USER="jamjar"
 DOMAIN="music.antoniosmith.xyz"
 PORT=3001
 
@@ -42,7 +42,7 @@ if [ -d ".git" ]; then
     git pull origin main
 else
     echo "Cloning repository..."
-    git clone https://github.com/antonio59/music-request-v2.git .
+    git clone https://github.com/antonio59/jamjar.git .
 fi
 
 echo -e "${YELLOW}Step 4: Installing Node.js dependencies...${NC}"
@@ -55,7 +55,7 @@ if [ ! -f ".env" ]; then
 PORT=$PORT
 JWT_SECRET=$(openssl rand -hex 32)
 NODE_ENV=production
-DB_PATH=$APP_DIR/data/music-request.db
+DB_PATH=$APP_DIR/data/jamjar.db
 DOWNLOAD_DIR=$APP_DIR/downloads
 YOUTUBE_API_KEY=
 EOF
@@ -70,9 +70,9 @@ node seed.js
 echo "✅ Database seeded"
 
 echo -e "${YELLOW}Step 7: Creating systemd service...${NC}"
-cat > /etc/systemd/system/music-request.service << EOF
+cat > /etc/systemd/system/jamjar.service << EOF
 [Unit]
-Description=Music Request App
+Description=JamJar Family Music App
 After=network.target
 
 [Service]
@@ -89,12 +89,12 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable music-request
-systemctl restart music-request
+systemctl enable jamjar
+systemctl restart jamjar
 echo "✅ Service started"
 
 echo -e "${YELLOW}Step 8: Configuring Nginx...${NC}"
-cat > /etc/nginx/sites-available/music-request << EOF
+cat > /etc/nginx/sites-available/jamjar << EOF
 server {
     listen 80;
     server_name $DOMAIN;
@@ -113,7 +113,7 @@ server {
 }
 EOF
 
-ln -sf /etc/nginx/sites-available/music-request /etc/nginx/sites-enabled/
+ln -sf /etc/nginx/sites-available/jamjar /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 echo "✅ Nginx configured"
 
@@ -122,7 +122,7 @@ certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email admin@antonio
 echo "✅ SSL configured"
 
 echo -e "${YELLOW}Step 10: Setting up log rotation...${NC}"
-cat > /etc/logrotate.d/music-request << EOF
+cat > /etc/logrotate.d/jamjar << EOF
 $APP_DIR/*.log {
     weekly
     rotate 4
@@ -141,8 +141,8 @@ echo -e "${GREEN}🎉 Deployment Complete!${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "App URL: https://$DOMAIN"
-echo "Service status: systemctl status music-request"
-echo "Logs: journalctl -u music-request -f"
+echo "Service status: systemctl status jamjar"
+echo "Logs: journalctl -u jamjar -f"
 echo ""
 echo "Default Accounts:"
 echo "  Parent: parent / 9999"

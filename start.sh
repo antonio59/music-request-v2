@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-cd /home/openclaw/.openclaw/workspace/music-request-v2
+cd /home/openclaw/.openclaw/workspace/jamjar
 
-echo "🎵 Music Request v2 - Starting..."
+echo "🫙 JamJar - Starting..."
 echo "Backend: http://localhost:3001"
 echo "Frontend: http://localhost:3000"
 echo ""
@@ -14,7 +14,7 @@ echo "  iPod Kid: username=ipod-kid, password=ipod123"
 echo ""
 
 # Seed database if it doesn't exist
-if [ ! -f data/music-request.db ]; then
+if [ ! -f data/jamjar.db ]; then
   echo "📦 Seeding database..."
   node seed.js
   echo ""

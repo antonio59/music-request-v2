@@ -4,14 +4,14 @@
 
 ### 1. Push to GitHub
 
-Your code is already on GitHub: https://github.com/antonio59/music-request-v2
+Your code is already on GitHub: https://github.com/antonio59/jamjar
 
 ### 2. Create Railway Project
 
 1. Go to [railway.app](https://railway.app) and sign in with GitHub
 2. Click **"New Project"**
 3. Select **"Deploy from GitHub repo"**
-4. Choose `antonio59/music-request-v2`
+4. Choose `antonio59/jamjar`
 5. Railway auto-detects it's a Node.js app
 
 ### 3. Set Environment Variables
@@ -88,7 +88,7 @@ Every time you push to GitHub `main`:
 
 **Database not persisting:**
 - Make sure you added persistent storage mounted at `/app/data`
-- Check that `DB_PATH` is set to `/app/data/music-request.db`
+- Check that `DB_PATH` is set to `/app/data/jamjar.db`
 
 **Port errors:**
 - Railway sets the `PORT` env var automatically
@@ -122,7 +122,7 @@ User Browser → Railway (Express + SQLite) → Internxt (files)
 | `INTERNXT_APP_KEY` | Optional | Cloud storage app key |
 | `NODE_ENV` | Auto | Set to `production` |
 | `PORT` | Auto | Set by Railway |
-| `DB_PATH` | Auto | Set to `/app/data/music-request.db` |
+| `DB_PATH` | Auto | Set to `/app/data/jamjar.db` |
 
 ## Default PINs (After Seeding)
 

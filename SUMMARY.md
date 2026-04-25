@@ -1,4 +1,4 @@
-# 🎵 Music Request v2 - Complete Summary
+# 🫙 JamJar - Complete Summary
 
 ## What's Built
 
@@ -28,7 +28,7 @@ Nieces' Devices → Railway (Express + SQLite) → Internxt (file storage)
 ## Quick Start (Local Testing)
 
 ```bash
-cd ~/music-request-v2
+cd ~/jamjar
 npm install
 npm run dev
 ```
@@ -49,7 +49,7 @@ Open http://localhost:3000
 
 **Quick version:**
 1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
-2. Select `antonio59/music-request-v2`
+2. Select `antonio59/jamjar`
 3. Add environment variables in Railway dashboard
 4. Add persistent storage at `/app/data`
 5. Run `npm run seed` in Railway Shell
@@ -144,7 +144,7 @@ NODE_ENV=production
 
 ## Repo
 
-**GitHub:** https://github.com/antonio59/music-request-v2
+**GitHub:** https://github.com/antonio59/jamjar
 
 **Docs:**
 - `README.md` — Overview

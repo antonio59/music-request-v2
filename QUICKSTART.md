@@ -1,4 +1,4 @@
-# 🎵 Music Request - Quick Start Guide
+# 🫙 JamJar - Quick Start Guide
 
 ## For Parents
 
@@ -6,8 +6,8 @@
 
 1. **Clone the repo:**
    ```bash
-   git clone https://github.com/antonio59/music-request-v2.git
-   cd music-request-v2
+   git clone https://github.com/antonio59/jamjar.git
+   cd jamjar
    ```
 
 2. **Install dependencies:**
@@ -144,7 +144,7 @@ node seed.js
 
 ## Support
 
-- GitHub Issues: https://github.com/antonio59/music-request-v2/issues
+- GitHub Issues: https://github.com/antonio59/jamjar/issues
 - Linear Board: Check project status there
 
 ## Family Handover Checklist

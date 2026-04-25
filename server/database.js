@@ -7,7 +7,7 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/music-request.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/jamjar.db');
 
 // Ensure data directory exists
 const dataDir = path.dirname(DB_PATH);

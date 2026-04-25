@@ -18,14 +18,14 @@ ssh root@your-vps-ip
 ### 2. Run the deployment script
 
 ```bash
-curl -O https://raw.githubusercontent.com/antonio59/music-request-v2/main/deploy-vps.sh
+curl -O https://raw.githubusercontent.com/antonio59/jamjar/main/deploy-vps.sh
 chmod +x deploy-vps.sh
 sudo bash deploy-vps.sh
 ```
 
 The script will:
 - Install Node.js, Nginx, yt-dlp, Certbot
-- Clone the repo to `/opt/music-request`
+- Clone the repo to `/opt/jamjar`
 - Set up systemd service
 - Configure Nginx reverse proxy
 - Get SSL certificate
@@ -57,18 +57,18 @@ Open `https://music.antoniosmith.xyz` in your browser.
 
 ### Change Default PINs
 
-Edit `/opt/music-request/seed.js` with new PINs, then:
+Edit `/opt/jamjar/seed.js` with new PINs, then:
 
 ```bash
-cd /opt/music-request
+cd /opt/jamjar
 rm -rf data/
 node seed.js
-systemctl restart music-request
+systemctl restart jamjar
 ```
 
 ### Add YouTube API Key (Optional)
 
-Edit `/opt/music-request/.env`:
+Edit `/opt/jamjar/.env`:
 
 ```env
 YOUTUBE_API_KEY=your_key_here
@@ -77,12 +77,12 @@ YOUTUBE_API_KEY=your_key_here
 Then restart:
 
 ```bash
-systemctl restart music-request
+systemctl restart jamjar
 ```
 
 ### Add Internxt Credentials (Optional)
 
-Edit `/opt/music-request/.env`:
+Edit `/opt/jamjar/.env`:
 
 ```env
 INTERNXT_EMAIL=your@email.com
@@ -93,7 +93,7 @@ INTERNXT_APP_KEY=your_app_key
 Then restart:
 
 ```bash
-systemctl restart music-request
+systemctl restart jamjar
 ```
 
 ## Managing the Service
@@ -101,42 +101,42 @@ systemctl restart music-request
 ### Check status
 
 ```bash
-systemctl status music-request
+systemctl status jamjar
 ```
 
 ### View logs
 
 ```bash
-journalctl -u music-request -f
+journalctl -u jamjar -f
 ```
 
 ### Restart
 
 ```bash
-systemctl restart music-request
+systemctl restart jamjar
 ```
 
 ### Stop
 
 ```bash
-systemctl stop music-request
+systemctl stop jamjar
 ```
 
 ### Update the app
 
 ```bash
-cd /opt/music-request
+cd /opt/jamjar
 git pull origin main
 npm install
-systemctl restart music-request
+systemctl restart jamjar
 ```
 
 ## Troubleshooting
 
 ### App not accessible
 
-1. Check service status: `systemctl status music-request`
-2. Check logs: `journalctl -u music-request -f`
+1. Check service status: `systemctl status jamjar`
+2. Check logs: `journalctl -u jamjar -f`
 3. Check Nginx: `systemctl status nginx`
 4. Check DNS: `nslookup music.antoniosmith.xyz`
 
@@ -150,47 +150,47 @@ sudo systemctl reload nginx
 ### Database errors
 
 ```bash
-cd /opt/music-request
+cd /opt/jamjar
 rm -rf data/
 node seed.js
-systemctl restart music-request
+systemctl restart jamjar
 ```
 
 ### Port conflict
 
-Edit `/opt/music-request/.env` and change `PORT=3001` to another port, then:
+Edit `/opt/jamjar/.env` and change `PORT=3001` to another port, then:
 
 ```bash
-systemctl restart music-request
+systemctl restart jamjar
 ```
 
 ## Security Notes
 
-- The app runs as a restricted system user (`music-request`)
+- The app runs as a restricted system user (`jamjar`)
 - JWT secret is auto-generated (256-bit random)
 - SSL is enforced via Let's Encrypt
-- Database is stored in `/opt/music-request/data/`
-- Downloads are stored in `/opt/music-request/downloads/`
+- Database is stored in `/opt/jamjar/data/`
+- Downloads are stored in `/opt/jamjar/downloads/`
 
 **For production:**
 - Change default PINs immediately
 - Set up firewall rules (ufw allow 80, 443, 22)
 - Enable automatic security updates: `apt install unattended-upgrades`
-- Regular backups of `/opt/music-request/data/`
+- Regular backups of `/opt/jamjar/data/`
 
 ## Backup & Restore
 
 ### Backup
 
 ```bash
-sudo tar czf music-request-backup.tar.gz /opt/music-request/data/
+sudo tar czf jamjar-backup.tar.gz /opt/jamjar/data/
 ```
 
 ### Restore
 
 ```bash
-sudo tar xzf music-request-backup.tar.gz -C /
-systemctl restart music-request
+sudo tar xzf jamjar-backup.tar.gz -C /
+systemctl restart jamjar
 ```
 
 ## Cost

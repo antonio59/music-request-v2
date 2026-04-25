@@ -1,8 +1,15 @@
+import * as Sentry from '@sentry/node';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import apiRoutes from './routes/api.js';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  integrations: [Sentry.httpIntegration(), Sentry.expressIntegration()],
+  tracesSampleRate: 1.0,
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +31,8 @@ app.use('/api', apiRoutes);
 app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
+
+Sentry.setupExpressErrorHandler(app);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
