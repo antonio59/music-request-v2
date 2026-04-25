@@ -46,7 +46,7 @@ else
 fi
 
 echo -e "${YELLOW}Step 4: Installing Node.js dependencies...${NC}"
-npm install --production
+npm install
 echo "✅ Dependencies installed"
 
 echo -e "${YELLOW}Step 5: Creating environment file...${NC}"
@@ -59,18 +59,26 @@ DB_PATH=$APP_DIR/data/jamjar.db
 DOWNLOAD_DIR=$APP_DIR/downloads
 YOUTUBE_API_KEY=
 SENTRY_DSN=
+VITE_SENTRY_DSN=
 EOF
     echo "✅ .env created with secure JWT_SECRET"
-    echo "⚠️  Edit .env to add YouTube API key if needed"
+    echo "⚠️  Edit .env to add YouTube API key, SENTRY_DSN and VITE_SENTRY_DSN"
 else
     echo "✅ .env already exists"
+    # Ensure new Sentry vars exist in old .env files
+    grep -q "^SENTRY_DSN=" .env || echo "SENTRY_DSN=" >> .env
+    grep -q "^VITE_SENTRY_DSN=" .env || echo "VITE_SENTRY_DSN=" >> .env
 fi
 
-echo -e "${YELLOW}Step 6: Seeding database...${NC}"
+echo -e "${YELLOW}Step 6: Building frontend...${NC}"
+npm run build
+echo "✅ Frontend built"
+
+echo -e "${YELLOW}Step 7: Seeding database...${NC}"
 node seed.js
 echo "✅ Database seeded"
 
-echo -e "${YELLOW}Step 7: Creating systemd service...${NC}"
+echo -e "${YELLOW}Step 8: Creating systemd service...${NC}"
 cat > /etc/systemd/system/jamjar.service << EOF
 [Unit]
 Description=JamJar Family Music App
@@ -94,7 +102,7 @@ systemctl enable jamjar
 systemctl restart jamjar
 echo "✅ Service started"
 
-echo -e "${YELLOW}Step 8: Configuring Nginx...${NC}"
+echo -e "${YELLOW}Step 9: Configuring Nginx...${NC}"
 cat > /etc/nginx/sites-available/jamjar << EOF
 server {
     listen 80;
@@ -118,11 +126,11 @@ ln -sf /etc/nginx/sites-available/jamjar /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 echo "✅ Nginx configured"
 
-echo -e "${YELLOW}Step 9: Setting up SSL with Let's Encrypt...${NC}"
+echo -e "${YELLOW}Step 10: Setting up SSL with Let's Encrypt...${NC}"
 certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email admin@antoniosmith.xyz
 echo "✅ SSL configured"
 
-echo -e "${YELLOW}Step 10: Setting up log rotation...${NC}"
+echo -e "${YELLOW}Step 11: Setting up log rotation...${NC}"
 cat > /etc/logrotate.d/jamjar << EOF
 $APP_DIR/*.log {
     weekly
