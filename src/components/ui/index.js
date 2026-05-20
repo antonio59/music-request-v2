@@ -7,6 +7,7 @@ export { default as Stepper } from "./Stepper";
 export { default as EmptyState } from "./EmptyState";
 export { default as Tabs } from "./Tabs";
 export { default as Drawer } from "./Drawer";
+export { default as ConfirmDialog } from "./ConfirmDialog";
 export { default as KpiCard } from "./KpiCard";
 export { default as Skeleton, SkeletonRow } from "./Skeleton";
 export { cx } from "./cx";

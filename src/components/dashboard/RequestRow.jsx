@@ -13,9 +13,20 @@ import {
   X,
   AlertTriangle,
   HelpCircle,
+  XCircle,
 } from "lucide-react";
 import useStore from "../../store/useStore";
-import { Badge, StatusBadge, Button, IconButton, cx } from "../ui";
+import {
+  Badge,
+  StatusBadge,
+  Button,
+  ConfirmDialog,
+  Input,
+  cx,
+} from "../ui";
+
+const ACTIVE_STATUSES = new Set(["pending", "approved", "downloading"]);
+const TERMINAL_STATUSES = new Set(["completed", "rejected", "failed"]);
 
 function profileMeta(profile) {
   if (profile === "yoto") return { tone: "yoto", label: "Yoto", emoji: "📻" };
@@ -123,32 +134,18 @@ export default function RequestRow({
         {/* Main content */}
         <div className="flex-1 min-w-0">
           {/* Title row */}
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 min-w-0">
-              {request.title || "Untitled"}
-              {isGenericTitle && userRole === "parent" && (
-                <span
-                  className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] font-normal text-[var(--warning)] align-middle"
-                  title="Generic title — consider renaming for clearer library + analytics"
-                >
-                  <AlertTriangle className="w-3 h-3" />
-                  generic
-                </span>
-              )}
-            </h3>
-            {userRole === "parent" &&
-              ["rejected", "completed", "failed"].includes(request.status) && (
-                <IconButton
-                  size="xs"
-                  variant="ghost"
-                  label="Delete"
-                  onClick={() => onDelete?.(request.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--text-muted)] hover:text-[var(--danger)]"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </IconButton>
-              )}
-          </div>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 min-w-0">
+            {request.title || "Untitled"}
+            {isGenericTitle && userRole === "parent" && (
+              <span
+                className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] font-normal text-[var(--warning)] align-middle"
+                title="Generic title — consider renaming for clearer library + analytics"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                generic
+              </span>
+            )}
+          </h3>
 
           {/* Meta row — compact badges */}
           <div className="flex items-center flex-wrap gap-1.5 mt-1.5">
@@ -190,6 +187,7 @@ export default function RequestRow({
             onReject={run("reject", onReject)}
             onRetry={run("retry", onRetry)}
             onMarkUploaded={run("uploaded", onMarkUploaded)}
+            onDelete={onDelete}
             onShowUploadGuide={onShowUploadGuide}
           />
         </div>
@@ -199,11 +197,13 @@ export default function RequestRow({
 }
 
 /* ─── Row Actions — strict grouping ──────────────────────────────────────────
-   Three lanes, visually separated, never mixed:
-   1. Decisions  (approve / reject)    — primary intent
-   2. Library    (preview / download)  — non-destructive use
-   3. Recovery   (retry / mark uploaded)  — fix-it actions
-   Destructive (delete) lives in the title row only.                          */
+   Four lanes, visually separated, never mixed:
+   1. Decisions  (approve / reject)        — primary intent
+   2. Library    (preview / download)      — non-destructive use
+   3. Recovery   (retry / mark uploaded)   — fix-it actions
+   4. Lifecycle  (cancel / delete)         — destructive, always rightmost
+   The lifecycle lane is gated by ownership: parents can always act, children
+   only on requests they originated.                                            */
 function RowActions({
   request,
   userRole,
@@ -212,9 +212,12 @@ function RowActions({
   onReject,
   onRetry,
   onMarkUploaded,
+  onDelete,
   onShowUploadGuide,
 }) {
+  const currentUserId = useStore((s) => s.user?.id);
   const isParent = userRole === "parent";
+  const ownsRequest = isParent || request.user_id === currentUserId;
   const lanes = [];
 
   // Decisions — pending only
@@ -274,7 +277,7 @@ function RowActions({
   if (request.status === "completed" && request.internxt_url) {
     lanes.push(
       <div key="library" className="flex items-center gap-2">
-        <DownloadButton request={request} />
+        <DownloadAction request={request} />
         {isParent && request.type === "music" && (
           <Button
             size="sm"
@@ -308,8 +311,86 @@ function RowActions({
     );
   }
 
+  // Lifecycle — cancel (active) or delete (terminal). Owner-gated.
+  if (onDelete && ownsRequest) {
+    lanes.push(
+      <LifecycleAction
+        key="lifecycle"
+        request={request}
+        onDelete={onDelete}
+      />,
+    );
+  }
+
   if (lanes.length === 0) return null;
   return <div className="flex flex-wrap items-center gap-3 mt-3">{lanes}</div>;
+}
+
+/* ─── Lifecycle Action — cancel or delete depending on state ─────────────── */
+function LifecycleAction({ request, onDelete }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const isActive = ACTIVE_STATUSES.has(request.status);
+  const hasFile = request.status === "completed" && !!request.internxt_url;
+  const needsConfirm = hasFile; // only confirm when we'd lose a real file
+
+  const verb = isActive ? "Cancel" : hasFile ? "Delete" : "Remove";
+  const variant = isActive ? "ghost" : "ghost";
+
+  const handleClick = async () => {
+    if (needsConfirm) {
+      setConfirmOpen(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await onDelete(request.id);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    setBusy(true);
+    try {
+      await onDelete(request.id);
+      setConfirmOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant={variant}
+        loading={busy && !confirmOpen}
+        onClick={handleClick}
+        iconLeft={
+          isActive ? (
+            <XCircle className="w-3.5 h-3.5" />
+          ) : (
+            <Trash2 className="w-3.5 h-3.5" />
+          )
+        }
+        className="text-[var(--text-muted)] hover:text-[var(--danger)] ml-auto"
+      >
+        {verb}
+      </Button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => !busy && setConfirmOpen(false)}
+        onConfirm={handleConfirm}
+        loading={busy}
+        title={`Delete "${request.title}"?`}
+        description="This removes the request from the library and deletes the downloaded file from the server. You can request it again later if you change your mind."
+        confirmLabel="Delete permanently"
+        variant="danger"
+      />
+    </>
+  );
 }
 
 /* ─── Mini Player — authenticated blob streaming ─────────────────────────── */
@@ -396,14 +477,28 @@ function MiniPlayer({ request, sessionId, className = "" }) {
   );
 }
 
-/* ─── Download Button — authenticated blob → save ────────────────────────── */
-function DownloadButton({ request }) {
-  const [downloading, setDownloading] = useState(false);
-  const [error, setError] = useState(null);
-  const cleanTitle = request.title.replace(/[<>:"/\\|?*]/g, "").trim().substring(0, 80);
-  const filename = cleanTitle ? `${cleanTitle}.mp3` : "song.mp3";
+/* ─── Download Action — open rename dialog, then fetch + save with chosen name ─── */
+function sanitizeFilename(name) {
+  return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "").trim().slice(0, 100);
+}
 
-  const handleClick = async () => {
+function DownloadAction({ request }) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState(null);
+  const defaultName = sanitizeFilename(request.title) || "song";
+  const [filename, setFilename] = useState(defaultName);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    if (open) setFilename(defaultName);
+  }, [open, defaultName]);
+
+  const handleDownload = async () => {
+    const safeName = sanitizeFilename(filename);
+    if (!safeName) {
+      setError("Pick a filename");
+      return;
+    }
     setDownloading(true);
     setError(null);
     try {
@@ -416,30 +511,73 @@ function DownloadButton({ request }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = filename;
+      a.download = `${safeName}.mp3`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      setOpen(false);
     } catch {
-      setError("Download failed");
+      setError("Download failed — try again");
     } finally {
       setDownloading(false);
     }
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <>
       <Button
         size="sm"
         variant="primary"
-        loading={downloading}
-        onClick={handleClick}
+        onClick={() => setOpen(true)}
         iconLeft={<Download className="w-3.5 h-3.5" />}
       >
         Download
       </Button>
-      {error && <span className="text-xs text-[var(--danger)]">{error}</span>}
-    </div>
+
+      <ConfirmDialog
+        open={open}
+        onClose={() => !downloading && setOpen(false)}
+        onConfirm={handleDownload}
+        loading={downloading}
+        title="Download as"
+        description="Pick a filename for your saved copy. The file is downloaded as MP3."
+        confirmLabel="Save file"
+        variant="primary"
+      >
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Input
+              value={filename}
+              onChange={(e) => setFilename(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleDownload();
+                }
+              }}
+              className="flex-1"
+              aria-label="Filename"
+            />
+            <span className="text-sm text-[var(--text-muted)] tabular-nums select-none">
+              .mp3
+            </span>
+          </div>
+          {error && (
+            <p className="text-xs text-[var(--danger)]">{error}</p>
+          )}
+          {filename !== defaultName && (
+            <button
+              type="button"
+              onClick={() => setFilename(defaultName)}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            >
+              Reset to “{defaultName}”
+            </button>
+          )}
+        </div>
+      </ConfirmDialog>
+    </>
   );
 }

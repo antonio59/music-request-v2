@@ -395,12 +395,38 @@ router.post(
   },
 );
 
+// DELETE a request — covers both "cancel" (active states) and "delete" (terminal)
+// semantics. Parents can act on any request; children can only act on their own.
+// Also removes the underlying download file from disk if present, so completed
+// records don't leave orphaned MP3s behind.
 router.delete(
   "/requests/:id",
   authenticateSession,
-  requireParent,
   (req, res) => {
     try {
+      const existing = getRequestById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Not found" });
+
+      if (req.user.role !== "parent" && existing.user_id !== req.user.id) {
+        return res
+          .status(403)
+          .json({ error: "You can only cancel your own requests" });
+      }
+
+      if (existing.internxt_url) {
+        const filePath = path.join(
+          DOWNLOAD_DIR,
+          existing.internxt_url.replace("/api/downloads/", ""),
+        );
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (err) {
+            console.error("Failed to delete file on request delete:", err.message);
+          }
+        }
+      }
+
       deleteRequest(req.params.id);
       res.json({ success: true });
     } catch {
