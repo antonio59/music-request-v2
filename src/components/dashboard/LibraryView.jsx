@@ -16,6 +16,30 @@ function parseArtist(title) {
   return idx > 0 ? title.substring(0, idx).trim() : null;
 }
 
+// Sort comparators. "downloaded" falls back to created_at when downloaded_at
+// is missing so non-completed rows still place sensibly.
+const SORT_FNS = {
+  recent:    (a, b) => new Date(b.created_at) - new Date(a.created_at),
+  oldest:    (a, b) => new Date(a.created_at) - new Date(b.created_at),
+  "title-asc":  (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
+  "title-desc": (a, b) => b.title.localeCompare(a.title, undefined, { sensitivity: "base" }),
+  downloaded: (a, b) => {
+    if (a.downloaded_at && b.downloaded_at)
+      return new Date(b.downloaded_at) - new Date(a.downloaded_at);
+    if (a.downloaded_at) return -1;
+    if (b.downloaded_at) return 1;
+    return new Date(b.created_at) - new Date(a.created_at);
+  },
+};
+
+const SORT_OPTIONS = [
+  { value: "recent",     label: "Most recent" },
+  { value: "oldest",     label: "Oldest first" },
+  { value: "title-asc",  label: "Title A → Z" },
+  { value: "title-desc", label: "Title Z → A" },
+  { value: "downloaded", label: "Recently downloaded" },
+];
+
 export default function LibraryView({
   requests,
   userRole,
@@ -29,6 +53,7 @@ export default function LibraryView({
   const [filterType, setFilterType] = useState("all");
   const [filterProfile, setFilterProfile] = useState("all");
   const [filterArtist, setFilterArtist] = useState("all");
+  const [sortBy, setSortBy] = useState("recent");
   const [groupByArtist, setGroupByArtist] = useState(false);
 
   const artists = useMemo(() => {
@@ -52,7 +77,7 @@ export default function LibraryView({
   }, [requests]);
 
   const filtered = useMemo(() => {
-    return requests.filter((r) => {
+    const result = requests.filter((r) => {
       if (filterStatus !== "all" && r.status !== filterStatus) return false;
       if (filterType !== "all" && r.type !== filterType) return false;
       if (filterProfile !== "all" && r.profile !== filterProfile) return false;
@@ -60,7 +85,8 @@ export default function LibraryView({
       if (searchQ && !r.title.toLowerCase().includes(searchQ.toLowerCase())) return false;
       return true;
     });
-  }, [requests, filterStatus, filterType, filterProfile, filterArtist, searchQ]);
+    return result.sort(SORT_FNS[sortBy] || SORT_FNS.recent);
+  }, [requests, filterStatus, filterType, filterProfile, filterArtist, searchQ, sortBy]);
 
   const hasActiveFilter =
     searchQ ||
@@ -106,6 +132,12 @@ export default function LibraryView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <FilterChip
+            label="Sort"
+            value={sortBy}
+            onChange={setSortBy}
+            options={SORT_OPTIONS}
+          />
           <FilterChip
             label="Status"
             value={filterStatus}
