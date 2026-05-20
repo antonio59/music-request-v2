@@ -10,7 +10,15 @@ import Tutorial from "./pages/Tutorial";
 import Navbar from "./components/Navbar";
 import Toast from "./components/Toast";
 
-function App() {
+function LoadingScreen() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-[var(--canvas)]">
+      <div className="w-8 h-8 border-4 border-[var(--brand)] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+export default function App() {
   const { isAuthenticated, user, toast, hideToast, restoreSession } = useStore();
   const [loading, setLoading] = useState(true);
 
@@ -18,31 +26,20 @@ function App() {
     restoreSession().finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !user) {
-    return <Login />;
-  }
+  if (loading) return <LoadingScreen />;
+  if (!isAuthenticated || !user) return <Login />;
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 transition-colors">
+      <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-primary)]">
         <Navbar />
-        <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route
               path="/analytics"
-              element={
-                user.role === "parent" ? <Analytics /> : <Navigate to="/" />
-              }
+              element={user.role === "parent" ? <Analytics /> : <Navigate to="/" />}
             />
             <Route path="/tutorial" element={<Tutorial />} />
             <Route path="*" element={<Navigate to="/" />} />
@@ -62,5 +59,3 @@ function App() {
     </BrowserRouter>
   );
 }
-
-export default App;

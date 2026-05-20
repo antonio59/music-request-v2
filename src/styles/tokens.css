@@ -1,0 +1,162 @@
+/* JamJar design tokens — semantic over palette. Use in Tailwind via arbitrary
+   values: bg-[var(--surface)] etc., or referenced from utility classes below. */
+
+:root {
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --canvas: #f7f6f3;
+  --surface: #ffffff;
+  --surface-2: #faf9f6;
+  --surface-elevated: #ffffff;
+  --overlay: rgba(15, 14, 22, 0.42);
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --text-primary: #14131a;
+  --text-secondary: #4a4754;
+  --text-muted: #74717f;
+  --text-disabled: #a5a3ad;
+  --text-inverse: #ffffff;
+
+  /* ── Borders ──────────────────────────────────────────────────────────── */
+  --border-subtle: #ece9e3;
+  --border-default: #e0ddd5;
+  --border-strong: #c8c4ba;
+  --border-focus: #7c3aed;
+
+  /* ── Brand ────────────────────────────────────────────────────────────── */
+  --brand: #7c3aed;
+  --brand-hover: #6d28d9;
+  --brand-active: #5b21b6;
+  --brand-soft: #f3eeff;
+  --brand-soft-strong: #e3d6ff;
+  --brand-on: #ffffff;
+
+  /* ── Profile accents (used sparingly, only for profile identity) ──────── */
+  --yoto: #d97706;
+  --yoto-soft: #fef3c7;
+  --ipod: #2563eb;
+  --ipod-soft: #dbeafe;
+
+  /* ── Semantic ─────────────────────────────────────────────────────────── */
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --success-border: #86efac;
+  --success-solid: #16a34a;
+  --success-solid-hover: #15803d;
+
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --warning-border: #fcd34d;
+  --warning-solid: #d97706;
+  --warning-solid-hover: #b45309;
+
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --danger-border: #fca5a5;
+  --danger-solid: #dc2626;
+  --danger-solid-hover: #b91c1c;
+
+  --info: #1e40af;
+  --info-soft: #dbeafe;
+  --info-border: #93c5fd;
+  --info-solid: #2563eb;
+
+  /* ── Status (request lifecycle) ───────────────────────────────────────── */
+  --status-pending-dot: #d97706;
+  --status-pending-bg: #fef3c7;
+  --status-approved-dot: #2563eb;
+  --status-approved-bg: #dbeafe;
+  --status-downloading-dot: #7c3aed;
+  --status-downloading-bg: #ede9fe;
+  --status-ready-dot: #16a34a;
+  --status-ready-bg: #dcfce7;
+  --status-failed-dot: #dc2626;
+  --status-failed-bg: #fee2e2;
+  --status-rejected-dot: #6b7280;
+  --status-rejected-bg: #f3f4f6;
+
+  /* ── Radius ───────────────────────────────────────────────────────────── */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-pill: 9999px;
+
+  /* ── Shadow ───────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(15, 14, 22, 0.04), 0 1px 1px rgba(15, 14, 22, 0.02);
+  --shadow-md: 0 4px 8px -2px rgba(15, 14, 22, 0.06), 0 2px 4px -1px rgba(15, 14, 22, 0.04);
+  --shadow-lg: 0 12px 24px -6px rgba(15, 14, 22, 0.12), 0 4px 8px -2px rgba(15, 14, 22, 0.06);
+  --shadow-xl: 0 24px 48px -12px rgba(15, 14, 22, 0.18);
+  --ring-focus: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+html.dark {
+  --canvas: #0e0d14;
+  --surface: #19181f;
+  --surface-2: #1f1e26;
+  --surface-elevated: #25232d;
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  --text-primary: #ecebf0;
+  --text-secondary: #b5b3bd;
+  --text-muted: #807e89;
+  --text-disabled: #5a5862;
+  --text-inverse: #14131a;
+
+  --border-subtle: #2a2932;
+  --border-default: #34323d;
+  --border-strong: #4a4754;
+
+  --brand: #a78bfa;
+  --brand-hover: #8b5cf6;
+  --brand-active: #7c3aed;
+  --brand-soft: #2d1f4d;
+  --brand-soft-strong: #3d2a66;
+  --brand-on: #14131a;
+
+  --yoto: #fbbf24;
+  --yoto-soft: #3d2c0d;
+  --ipod: #60a5fa;
+  --ipod-soft: #0c2347;
+
+  --success: #4ade80;
+  --success-soft: #0e2818;
+  --success-border: #166534;
+  --success-solid: #16a34a;
+  --success-solid-hover: #15803d;
+
+  --warning: #fbbf24;
+  --warning-soft: #3d2c0d;
+  --warning-border: #92400e;
+  --warning-solid: #d97706;
+  --warning-solid-hover: #b45309;
+
+  --danger: #f87171;
+  --danger-soft: #3d1414;
+  --danger-border: #991b1b;
+  --danger-solid: #dc2626;
+  --danger-solid-hover: #b91c1c;
+
+  --info: #60a5fa;
+  --info-soft: #0c2347;
+  --info-border: #1d4ed8;
+  --info-solid: #2563eb;
+
+  --status-pending-dot: #fbbf24;
+  --status-pending-bg: #3d2c0d;
+  --status-approved-dot: #60a5fa;
+  --status-approved-bg: #0c2347;
+  --status-downloading-dot: #a78bfa;
+  --status-downloading-bg: #2d1f4d;
+  --status-ready-dot: #4ade80;
+  --status-ready-bg: #0e2818;
+  --status-failed-dot: #f87171;
+  --status-failed-bg: #3d1414;
+  --status-rejected-dot: #9ca3af;
+  --status-rejected-bg: #2a2932;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 24px -6px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
+  --ring-focus: 0 0 0 3px rgba(167, 139, 250, 0.3);
+}

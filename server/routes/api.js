@@ -38,9 +38,31 @@ const DOWNLOAD_DIR =
 
 const TITLE_NOISE = /[\[(][\s\w]*(official\s*(lyric|music|audio|hd|4k)?(\s*video)?|lyric[s]?|audio|hd|4k|explicit|remaster(ed)?|visuali[sz]er|performance\s*video|topic)[\s\w]*[\])]/gi;
 
-function cleanTitle(title) {
-  return title.replace(TITLE_NOISE, "").replace(/\s{2,}/g, " ").trim();
+// Generic / placeholder titles that should be flagged and improved, not stored
+// silently — the request UI now requires an editable title, so these only
+// arrive from older imports or odd YouTube metadata.
+const GENERIC_TITLES = new Set([
+  "video from url",
+  "youtube video",
+  "untitled",
+  "song",
+]);
+
+function normalizeTitle(title, fallback = null) {
+  if (!title || typeof title !== "string") {
+    return fallback || "Untitled track";
+  }
+  let cleaned = title.replace(TITLE_NOISE, "").replace(/\s{2,}/g, " ").trim();
+  if (cleaned.length > 200) cleaned = cleaned.slice(0, 200).trim();
+  if (!cleaned || GENERIC_TITLES.has(cleaned.toLowerCase())) {
+    return fallback || cleaned || "Untitled track";
+  }
+  return cleaned;
 }
+
+// Alias kept for the rest of the file — same behavior as before, plus the
+// extra noise/length guards.
+const cleanTitle = normalizeTitle;
 
 const router = express.Router();
 

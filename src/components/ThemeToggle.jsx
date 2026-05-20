@@ -1,31 +1,22 @@
-import { useState, useEffect } from 'react';
-import { Sun, Moon } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Sun, Moon } from "lucide-react";
+import { IconButton } from "./ui/Button";
 
 export default function ThemeToggle() {
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('darkMode') === 'true';
-  });
+  const [dark, setDark] = useState(() => localStorage.getItem("darkMode") === "true");
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('darkMode', darkMode);
-  }, [darkMode]);
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("darkMode", dark);
+  }, [dark]);
 
   return (
-    <button
-      onClick={() => setDarkMode(!darkMode)}
-      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-      aria-label="Toggle dark mode"
+    <IconButton
+      size="sm"
+      label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={() => setDark((d) => !d)}
     >
-      {darkMode ? (
-        <Sun className="w-5 h-5 text-yellow-500" />
-      ) : (
-        <Moon className="w-5 h-5 text-gray-700" />
-      )}
-    </button>
+      {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </IconButton>
   );
 }

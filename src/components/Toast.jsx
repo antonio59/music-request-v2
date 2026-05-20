@@ -1,50 +1,45 @@
 import { useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { CheckCircle, XCircle, AlertCircle, Info } from "lucide-react";
+import { cx } from "./ui/cx";
 
-export default function Toast({
-  message,
-  type = "success",
-  onClose,
-  duration = 3000,
-}) {
+const STYLE = {
+  success: { icon: CheckCircle, bg: "var(--success-soft)", border: "var(--success-border)", color: "var(--success)" },
+  error:   { icon: XCircle,     bg: "var(--danger-soft)",  border: "var(--danger-border)",  color: "var(--danger)" },
+  warning: { icon: AlertCircle, bg: "var(--warning-soft)", border: "var(--warning-border)", color: "var(--warning)" },
+  info:    { icon: Info,        bg: "var(--info-soft)",    border: "var(--info-border)",    color: "var(--info)" },
+};
+
+export default function Toast({ message, type = "success", onClose, duration = 3000 }) {
   useEffect(() => {
     if (duration > 0) {
-      const timer = setTimeout(onClose, duration);
-      return () => clearTimeout(timer);
+      const t = setTimeout(onClose, duration);
+      return () => clearTimeout(t);
     }
   }, [duration, onClose]);
 
-  const icons = {
-    success: <CheckCircle className="w-5 h-5 text-green-600" />,
-    error: <XCircle className="w-5 h-5 text-red-600" />,
-    warning: <AlertCircle className="w-5 h-5 text-yellow-600" />,
-    info: <AlertCircle className="w-5 h-5 text-blue-600" />,
-  };
-
-  const bgColors = {
-    success:
-      "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700",
-    error: "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700",
-    warning:
-      "bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700",
-    info: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700",
-  };
+  const cfg = STYLE[type] || STYLE.info;
+  const Icon = cfg.icon;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -20, scale: 0.9 }}
+      initial={{ opacity: 0, y: -16, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.9 }}
-      className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-6 py-4 rounded-xl shadow-lg border-2 ${bgColors[type]}`}
+      exit={{ opacity: 0, y: -16, scale: 0.96 }}
+      role="status"
+      className={cx(
+        "fixed top-4 right-4 z-[100] flex items-start gap-2.5 px-4 py-3 rounded-[var(--r-lg)] shadow-[var(--shadow-lg)] border max-w-sm",
+      )}
+      style={{ background: cfg.bg, borderColor: cfg.border }}
     >
-      {icons[type]}
-      <span className="font-medium text-gray-800 dark:text-gray-200">
+      <Icon className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: cfg.color }} />
+      <span className="text-sm font-medium text-[var(--text-primary)] flex-1 leading-snug">
         {message}
       </span>
       <button
         onClick={onClose}
-        className="ml-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+        aria-label="Dismiss"
+        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] -mr-1 -mt-1 p-1"
       >
         ×
       </button>

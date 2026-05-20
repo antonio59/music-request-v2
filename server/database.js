@@ -249,6 +249,21 @@ export function deleteRequest(requestId) {
   stmt.run(requestId);
 }
 
+// Generic / placeholder titles that pollute analytics — excluded from
+// "Most Requested" / "Top Artists" but kept in raw data.
+const GENERIC_TITLE_PATTERNS = [
+  /^video from url$/i,
+  /^youtube video$/i,
+  /^untitled/i,
+  /^song$/i,
+  /^\s*$/,
+];
+
+function isGenericTitle(title) {
+  if (!title) return true;
+  return GENERIC_TITLE_PATTERNS.some((re) => re.test(title.trim()));
+}
+
 // Analytics functions
 export function getAnalytics() {
   const totalRequests = db.prepare('SELECT COUNT(*) as count FROM requests').get().count;
@@ -257,25 +272,73 @@ export function getAnalytics() {
   const completedCount = db.prepare("SELECT COUNT(*) as count FROM requests WHERE status = 'completed'").get().count;
   const rejectedCount = db.prepare("SELECT COUNT(*) as count FROM requests WHERE status = 'rejected'").get().count;
   const failedCount = db.prepare("SELECT COUNT(*) as count FROM requests WHERE status = 'failed'").get().count;
-  
+
   const yotoCount = db.prepare("SELECT COUNT(*) as count FROM requests WHERE profile = 'yoto'").get().count;
   const ipodCount = db.prepare("SELECT COUNT(*) as count FROM requests WHERE profile = 'ipod'").get().count;
-  
+
   const musicCount = db.prepare("SELECT COUNT(*) as count FROM requests WHERE type = 'music'").get().count;
   const audiobookCount = db.prepare("SELECT COUNT(*) as count FROM requests WHERE type = 'audiobook'").get().count;
-  
-  const topRequests = db.prepare(
-    'SELECT title, COUNT(*) as times_requested FROM requests GROUP BY title ORDER BY times_requested DESC LIMIT 10'
+
+  // Outcome-driven counts the dashboard surfaces
+  const needsUpload = db.prepare(
+    "SELECT COUNT(*) as count FROM requests WHERE type = 'audiobook' AND status = 'approved'"
+  ).get().count;
+  const completedThisWeek = db.prepare(
+    "SELECT COUNT(*) as count FROM requests WHERE status = 'completed' AND downloaded_at >= datetime('now', '-7 days')"
+  ).get().count;
+  const completedLastWeek = db.prepare(
+    `SELECT COUNT(*) as count FROM requests WHERE status = 'completed'
+       AND downloaded_at >= datetime('now', '-14 days')
+       AND downloaded_at <  datetime('now', '-7 days')`
+  ).get().count;
+
+  // Average download time (music only) in seconds
+  const avgRow = db.prepare(
+    `SELECT AVG((julianday(downloaded_at) - julianday(approved_at)) * 86400) as avg_seconds
+     FROM requests
+     WHERE type = 'music' AND status = 'completed'
+       AND approved_at IS NOT NULL AND downloaded_at IS NOT NULL`
+  ).get();
+  const avgCompletionSeconds = avgRow?.avg_seconds ? Math.round(avgRow.avg_seconds) : null;
+
+  // Requests over the last 14 days, bucketed by day (zero-filled below)
+  const byDayRows = db.prepare(
+    `SELECT DATE(created_at) as date, COUNT(*) as count
+     FROM requests
+     WHERE created_at >= date('now', '-14 days')
+     GROUP BY DATE(created_at)
+     ORDER BY date ASC`
   ).all();
-  
+  const byDayMap = Object.fromEntries(byDayRows.map((r) => [r.date, r.count]));
+  const requestsByDay = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    requestsByDay.push({ date: iso, count: byDayMap[iso] || 0 });
+  }
+
+  // Top artists (completed downloads only — meaningful library signal)
+  const topArtists = db.prepare(
+    `SELECT artist, COUNT(*) as count FROM requests
+     WHERE status = 'completed' AND artist IS NOT NULL AND TRIM(artist) <> ''
+     GROUP BY artist ORDER BY count DESC LIMIT 5`
+  ).all();
+
+  // Most requested — keep raw top, then filter out generic titles client-friendly
+  const rawTop = db.prepare(
+    'SELECT title, COUNT(*) as times_requested FROM requests GROUP BY title ORDER BY times_requested DESC LIMIT 20'
+  ).all();
+  const topRequested = rawTop.filter((r) => !isGenericTitle(r.title)).slice(0, 10);
+
   const recentRequests = db.prepare(
     'SELECT * FROM requests ORDER BY created_at DESC LIMIT 20'
   ).all();
-  
+
   const rejectionReasons = db.prepare(
     "SELECT rejected_reason, COUNT(*) as count FROM requests WHERE status = 'rejected' AND rejected_reason IS NOT NULL GROUP BY rejected_reason ORDER BY count DESC"
   ).all();
-  
+
   return {
     total: totalRequests,
     pending: pendingCount,
@@ -283,9 +346,15 @@ export function getAnalytics() {
     completed: completedCount,
     rejected: rejectedCount,
     failed: failedCount,
+    needsUpload,
+    completedThisWeek,
+    completedLastWeek,
+    avgCompletionSeconds,
     byProfile: { yoto: yotoCount, ipod: ipodCount },
     byType: { music: musicCount, audiobook: audiobookCount },
-    topRequested: topRequests,
+    requestsByDay,
+    topArtists,
+    topRequested,
     recent: recentRequests,
     rejectionReasons,
   };

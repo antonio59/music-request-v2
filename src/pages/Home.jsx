@@ -1,144 +1,212 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Music,
+  Book,
+  Search,
+  Link as LinkIcon,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
 import useStore from "../store/useStore";
-import { Music, Book, CheckCircle, Search, Link, X, AlertTriangle } from "lucide-react";
+import {
+  Card,
+  Stepper,
+  SegmentedControl,
+  Button,
+  Badge,
+  SearchField,
+  Label,
+  Input,
+  EmptyState,
+  cx,
+} from "../components/ui";
 
-function isYouTubeUrl(str) {
-  return /youtube\.com|youtu\.be/.test(str);
+function isYouTubeUrl(s = "") {
+  return /youtube\.com|youtu\.be/.test(s);
 }
 
+const PROFILE_OPTIONS = [
+  { value: "yoto", label: "Yoto", icon: <span aria-hidden>📻</span> },
+  { value: "ipod", label: "iPod", icon: <span aria-hidden>🎧</span> },
+];
+
+const TYPE_OPTIONS = [
+  { value: "music", label: "Music", icon: <Music className="w-4 h-4" /> },
+  { value: "audiobook", label: "Audiobook", icon: <Book className="w-4 h-4" /> },
+];
+
+const SOURCE_OPTIONS = [
+  { value: "search", label: "Search", icon: <Search className="w-4 h-4" /> },
+  { value: "url", label: "Paste YouTube link", icon: <LinkIcon className="w-4 h-4" /> },
+];
+
 export default function Home() {
-  const { user, createRequest, search, searchBooks, getVideoInfo, checkDuplicate, showToast } =
-    useStore();
+  const {
+    user,
+    createRequest,
+    search,
+    searchBooks,
+    getVideoInfo,
+    checkDuplicate,
+    showToast,
+  } = useStore();
 
   const isParent = user.role === "parent";
-  // Parents pick a profile; children use their own
-  const [selectedProfile, setSelectedProfile] = useState("yoto");
-  const profile = isParent ? selectedProfile : user.profile;
 
-  const [trackType, setTrackType] = useState("music");
-  // music sub-mode: "search" | "url"
-  const [musicMode, setMusicMode] = useState("search");
+  // ── State ─────────────────────────────────────────────────────────────────
+  const [step, setStep] = useState(isParent ? 0 : 1);
+  const [profile, setProfile] = useState(isParent ? "yoto" : user.profile);
+  const [type, setType] = useState("music");
+  const [source, setSource] = useState("search"); // music sub-mode
 
-  // shared
-  const [submitted, setSubmitted] = useState(false);
-
-  // search mode state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedTrack, setSelectedTrack] = useState(null);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [searchedOnce, setSearchedOnce] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState(null);
   const [duplicateCount, setDuplicateCount] = useState(0);
 
-  // URL mode state
+  // URL paste
   const [urlInput, setUrlInput] = useState("");
   const [urlTitle, setUrlTitle] = useState("");
   const [urlPreview, setUrlPreview] = useState(null);
   const [urlLoading, setUrlLoading] = useState(false);
   const [urlError, setUrlError] = useState(null);
-  const urlDebounceRef = useRef(null);
+  const urlDebounce = useRef(null);
 
-  // Check for duplicates when a track is selected
-  useEffect(() => {
-    if (!selectedTrack) { setDuplicateCount(0); return; }
-    checkDuplicate(selectedTrack.title).then(setDuplicateCount);
-  }, [selectedTrack, checkDuplicate]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(null); // null | { type, kind }
 
-  const resetAll = () => {
-    setSearchQuery("");
-    setSearchResults([]);
+  // Reset downstream state when upstream choice changes
+  const clearSelection = () => {
+    setQuery("");
+    setResults([]);
     setSelectedTrack(null);
     setUrlInput("");
     setUrlTitle("");
     setUrlPreview(null);
     setUrlError(null);
+    setSearchedOnce(false);
+    setDuplicateCount(0);
   };
 
-  const handleTypeChange = (type) => {
-    setTrackType(type);
-    resetAll();
+  // Duplicate check
+  useEffect(() => {
+    if (!selectedTrack) {
+      setDuplicateCount(0);
+      return;
+    }
+    checkDuplicate(selectedTrack.title).then(setDuplicateCount);
+  }, [selectedTrack, checkDuplicate]);
+
+  // ── Step navigation ──────────────────────────────────────────────────────
+  const steps = useMemo(() => {
+    const base = [
+      { id: "type", label: "Type", hint: "Music or audiobook" },
+      { id: "source", label: "Find content", hint: type === "audiobook" ? "Search Open Library" : "Search or paste link" },
+      { id: "confirm", label: "Confirm", hint: "Review and send" },
+    ];
+    if (isParent) {
+      return [
+        { id: "device", label: "Device", hint: "Yoto or iPod" },
+        ...base,
+      ];
+    }
+    return base;
+  }, [isParent, type]);
+
+  const stepIdx = step; // already 0-based
+  const canAdvance = () => {
+    const id = steps[stepIdx]?.id;
+    if (id === "device") return !!profile;
+    if (id === "type") return !!type;
+    if (id === "source") {
+      if (type === "audiobook") return !!selectedTrack;
+      return source === "search" ? !!selectedTrack : isYouTubeUrl(urlInput);
+    }
+    return true;
   };
 
-  // --- Music search ---
-  const handleSearch = async (query) => {
-    setSearchQuery(query);
+  const next = () => canAdvance() && setStep((s) => Math.min(s + 1, steps.length - 1));
+  const back = () => setStep((s) => Math.max(s - 1, 0));
+  const goTo = (idx) => idx <= step && setStep(idx);
+
+  // ── Searches ──────────────────────────────────────────────────────────────
+  const handleSearch = async (q) => {
+    setQuery(q);
     setSelectedTrack(null);
-    if (query.length < 2) {
-      setSearchResults([]);
+    if (q.length < 2) {
+      setResults([]);
+      setSearchedOnce(false);
       return;
     }
     setSearching(true);
-    const results = await search(query, "music");
-    setSearchResults(results);
+    const fn = type === "audiobook" ? searchBooks : (qq) => search(qq, "music");
+    const r = await fn(q);
+    setResults(r || []);
+    setSearchedOnce(true);
     setSearching(false);
   };
 
-  // --- YouTube URL paste ---
-  const handleUrlInput = (val) => {
+  const handleUrlChange = (val) => {
     setUrlInput(val);
     setUrlPreview(null);
     setUrlTitle("");
     setUrlError(null);
-    if (!isYouTubeUrl(val)) return;
+    if (!val.trim()) return;
+    if (!isYouTubeUrl(val)) {
+      setUrlError(
+        "Doesn't look like a YouTube link. Try a youtube.com or youtu.be URL.",
+      );
+      return;
+    }
 
-    clearTimeout(urlDebounceRef.current);
-    urlDebounceRef.current = setTimeout(async () => {
+    clearTimeout(urlDebounce.current);
+    urlDebounce.current = setTimeout(async () => {
       setUrlLoading(true);
       try {
         const info = await getVideoInfo(val);
-        if (info) {
+        if (info?.title) {
           setUrlPreview(info);
-          setUrlTitle(info.title || "");
+          setUrlTitle(info.title);
         } else {
-          setUrlError("Couldn't load video info — it may be private or unavailable.");
+          setUrlError(
+            "Couldn't read that video. It may be private, removed, or region-locked.",
+          );
         }
       } catch {
-        setUrlError("Couldn't load video info — it may be private or unavailable.");
+        setUrlError(
+          "Couldn't read that video. It may be private, removed, or region-locked.",
+        );
       }
       setUrlLoading(false);
     }, 500);
   };
 
-  // --- Audiobook search ---
-  const handleBookSearch = async (query) => {
-    setSearchQuery(query);
-    setSelectedTrack(null);
-    if (query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    setSearching(true);
-    const results = await searchBooks(query);
-    setSearchResults(results);
-    setSearching(false);
-  };
-
-  // --- Submit ---
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    let requestData;
-
-    if (trackType === "music") {
-      if (musicMode === "search") {
-        if (!selectedTrack) return;
-        requestData = {
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const buildPayload = () => {
+    if (type === "music") {
+      if (source === "search" && selectedTrack) {
+        return {
           profile,
           title: selectedTrack.title,
           url: selectedTrack.url,
           type: "music",
-          searchQuery,
+          searchQuery: query,
           thumbnail: selectedTrack.thumbnail,
           duration: selectedTrack.duration,
           direct: isParent,
         };
-      } else {
-        // URL mode
-        if (!urlPreview && !isYouTubeUrl(urlInput)) return;
-        const title = urlTitle.trim() || urlPreview?.title || "YouTube Video";
-        requestData = {
+      }
+      if (source === "url" && isYouTubeUrl(urlInput)) {
+        return {
           profile,
-          title,
+          title: urlTitle.trim() || urlPreview?.title || "Untitled YouTube track",
           url: urlInput,
           type: "music",
           searchQuery: urlInput,
@@ -147,517 +215,525 @@ export default function Home() {
           direct: isParent,
         };
       }
-    } else {
-      // Audiobook
-      if (!selectedTrack) return;
-      requestData = {
+    }
+    if (type === "audiobook" && selectedTrack) {
+      return {
         profile,
         title: `${selectedTrack.title} — ${selectedTrack.author}`,
         url: selectedTrack.url,
         type: "audiobook",
-        searchQuery,
+        searchQuery: query,
         thumbnail: selectedTrack.thumbnail || "",
         duration: "",
         direct: isParent,
       };
     }
+    return null;
+  };
 
+  const handleSubmit = async () => {
+    const payload = buildPayload();
+    if (!payload) return;
+    setSubmitting(true);
     try {
-      await createRequest(requestData);
+      await createRequest(payload);
+      setSubmitted({ type, isParent, profile });
       showToast(
         isParent
-          ? trackType === "audiobook"
-            ? "Audiobook request added! Remember to upload the file manually."
-            : "Request added and downloading! Check the dashboard."
-          : "Request sent! A parent will review it soon 🎉",
-        "success"
+          ? type === "audiobook"
+            ? "Audiobook queued — upload the file when you're ready."
+            : "Added — downloading now."
+          : "Request sent — a grown-up will review it soon.",
+        "success",
       );
-      setSubmitted(true);
-      setTimeout(() => {
-        setSubmitted(false);
-        resetAll();
-      }, 3000);
     } catch (err) {
       const status = err.response?.status;
-      let msg = err.response?.data?.error || "Something went wrong. Please try again.";
-      if (status === 401 || status === 403) msg = "Please ask a grown-up to log in again.";
-      if (status === 429) msg = "You're going too fast! Please wait a moment and try again.";
+      let msg = err.response?.data?.error || "Couldn't send the request.";
+      if (status === 401 || status === 403)
+        msg = "Please ask a grown-up to log in again.";
+      if (status === 429) msg = "Going too fast! Wait a moment and try again.";
       showToast(msg, "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const canSubmit =
-    trackType === "audiobook"
-      ? !!selectedTrack
-      : musicMode === "search"
-        ? !!selectedTrack
-        : isYouTubeUrl(urlInput);
+  const resetAll = () => {
+    setStep(isParent ? 0 : 1);
+    clearSelection();
+    setType("music");
+    setSource("search");
+    setSubmitted(null);
+  };
 
+  // ── Success view ──────────────────────────────────────────────────────────
   if (submitted) {
-    const isAudiobook = trackType === "audiobook";
-    return (
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-green-100 dark:bg-green-900/30 border-2 border-green-500 dark:border-green-700 rounded-2xl p-12 text-center max-w-md mx-auto mt-20"
-      >
-        <CheckCircle className="w-20 h-20 text-green-600 dark:text-green-400 mx-auto mb-6" />
-        <h2 className="text-3xl font-bold text-green-800 dark:text-green-300 mb-3">
-          {isParent ? "Added! 🎉" : "Request Sent! 🎉"}
-        </h2>
-        <p className="text-green-700 dark:text-green-400 text-lg mb-6">
-          {isParent
-            ? isAudiobook
-              ? "Audiobook request logged — don't forget to upload the file."
-              : "Downloading now. Check the dashboard for progress."
-            : isAudiobook
-              ? "A parent will find the audiobook for you soon!"
-              : "A parent will review your request soon."}
-        </p>
-        {isAudiobook && (
-          <button
-            onClick={() => { setSubmitted(false); resetAll(); }}
-            className="inline-flex items-center gap-2 bg-green-700 hover:bg-green-800 text-white font-medium px-5 py-2.5 rounded-xl transition-colors"
-          >
-            <Book className="w-4 h-4" />
-            Request another book
-          </button>
-        )}
-      </motion.div>
-    );
+    return <SuccessCard submitted={submitted} onAddAnother={resetAll} />;
   }
+
+  // ── Step content ──────────────────────────────────────────────────────────
+  const currentStepId = steps[stepIdx]?.id;
+  const showBack = stepIdx > 0 && stepIdx < steps.length;
+  const isLast = stepIdx === steps.length - 1;
 
   return (
     <div className="max-w-2xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 transition-colors"
-      >
-        <h1
-          className={`text-4xl font-bold mb-2 text-center ${
-            profile === "yoto"
-              ? "bg-gradient-to-r from-yellow-500 to-orange-600 bg-clip-text text-transparent"
-              : "bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent"
-          }`}
-        >
-          {isParent ? "➕ Add a Request" : profile === "yoto" ? "📻 Request for Yoto" : "🎧 Request for iPod"}
+      <header className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] tracking-tight">
+          {isParent ? "New request" : "What do you want to hear?"}
         </h1>
-        <p className="text-center text-gray-600 dark:text-gray-400 mb-8">
+        <p className="text-sm text-[var(--text-muted)] mt-1">
           {isParent
-            ? "Add music or an audiobook directly to the queue."
-            : `Hi ${user.display_name || user.username}! What do you want to listen to?`}
+            ? "Add music or audiobooks to the library — direct, no approval needed."
+            : `Hi ${user.display_name || user.username}! Pick a song or book and a grown-up will review it.`}
         </p>
+      </header>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Profile picker — parents only */}
-          {isParent && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Request for
-              </label>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedProfile("yoto")}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
-                    selectedProfile === "yoto"
-                      ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-md"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  📻 Yoto
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedProfile("ipod")}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
-                    selectedProfile === "ipod"
-                      ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  🎧 iPod
-                </button>
-              </div>
-            </div>
-          )}
+      <Card padding="lg" className="overflow-hidden">
+        <Stepper steps={steps} current={stepIdx} onJump={goTo} />
 
-          {/* Type: Music / Audiobook */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => handleTypeChange("music")}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                trackType === "music"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+        <div className="mt-6 min-h-[280px]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStepId}
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.18 }}
             >
-              <Music className="w-5 h-5" />
-              Music
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange("audiobook")}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                trackType === "audiobook"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              <Book className="w-5 h-5" />
-              Audiobook
-            </button>
-          </div>
-
-          {/* Music sub-mode: Search / Paste URL */}
-          {trackType === "music" && (
-            <div className="flex gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setMusicMode("search");
-                  resetAll();
-                }}
-                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                  musicMode === "search"
-                    ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                }`}
-              >
-                <Search className="w-4 h-4" />
-                Search
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMusicMode("url");
-                  resetAll();
-                }}
-                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                  musicMode === "url"
-                    ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                }`}
-              >
-                <Link className="w-4 h-4" />
-                Paste YouTube Link
-              </button>
-            </div>
-          )}
-
-          {/* Music: Search mode */}
-          {trackType === "music" && musicMode === "search" && (
-            <>
-              <SearchInput
-                value={searchQuery}
-                onChange={handleSearch}
-                placeholder="Search for a song or artist..."
-                loading={searching}
-              />
-              <SearchResultList
-                results={searchResults}
-                onSelect={(r) => {
-                  setSelectedTrack(r);
-                  setSearchQuery(r.title);
-                  setSearchResults([]);
-                }}
-                renderItem={(r) => (
-                  <MusicResultItem result={r} />
-                )}
-              />
-              {selectedTrack && (
-                <>
-                  <SelectedMusicPreview track={selectedTrack} />
-                  {duplicateCount > 0 && (
-                    <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg text-sm text-amber-700 dark:text-amber-400">
-                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                      <span>This song has already been downloaded {duplicateCount} time{duplicateCount !== 1 ? "s" : ""}. You can still add it again if you'd like.</span>
-                    </div>
-                  )}
-                </>
+              {currentStepId === "device" && (
+                <DeviceStep value={profile} onChange={setProfile} />
               )}
-            </>
+              {currentStepId === "type" && (
+                <TypeStep
+                  value={type}
+                  onChange={(t) => {
+                    setType(t);
+                    clearSelection();
+                  }}
+                />
+              )}
+              {currentStepId === "source" && (
+                <SourceStep
+                  type={type}
+                  source={source}
+                  onSourceChange={(s) => {
+                    setSource(s);
+                    clearSelection();
+                  }}
+                  query={query}
+                  results={results}
+                  searching={searching}
+                  searchedOnce={searchedOnce}
+                  selectedTrack={selectedTrack}
+                  duplicateCount={duplicateCount}
+                  onSearch={handleSearch}
+                  onSelectTrack={(r) => {
+                    setSelectedTrack(r);
+                    setQuery(r.title);
+                    setResults([]);
+                  }}
+                  urlInput={urlInput}
+                  urlTitle={urlTitle}
+                  urlPreview={urlPreview}
+                  urlLoading={urlLoading}
+                  urlError={urlError}
+                  onUrlChange={handleUrlChange}
+                  onUrlTitleChange={setUrlTitle}
+                  onClearUrl={() => {
+                    setUrlInput("");
+                    setUrlTitle("");
+                    setUrlPreview(null);
+                    setUrlError(null);
+                  }}
+                />
+              )}
+              {currentStepId === "confirm" && (
+                <ConfirmStep
+                  profile={profile}
+                  type={type}
+                  source={source}
+                  selectedTrack={selectedTrack}
+                  urlInput={urlInput}
+                  urlTitle={urlTitle}
+                  urlPreview={urlPreview}
+                  duplicateCount={duplicateCount}
+                  isParent={isParent}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-[var(--border-subtle)]">
+          {showBack ? (
+            <Button
+              variant="ghost"
+              onClick={back}
+              iconLeft={<ChevronLeft className="w-4 h-4" />}
+            >
+              Back
+            </Button>
+          ) : (
+            <span />
+          )}
+          {isLast ? (
+            <Button
+              variant="primary"
+              size="lg"
+              loading={submitting}
+              disabled={!buildPayload()}
+              onClick={handleSubmit}
+              iconLeft={<Sparkles className="w-4 h-4" />}
+            >
+              {isParent
+                ? type === "audiobook"
+                  ? "Add to queue"
+                  : `Add to ${profile === "yoto" ? "Yoto" : "iPod"}`
+                : "Send request"}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="lg"
+              disabled={!canAdvance()}
+              onClick={next}
+              iconRight={<ChevronRight className="w-4 h-4" />}
+            >
+              Continue
+            </Button>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ─── Step: Device ──────────────────────────────────────────────────────── */
+function DeviceStep({ value, onChange }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+          Which device is this for?
+        </h2>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          The track is delivered to that device's library.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {PROFILE_OPTIONS.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={cx(
+                "flex items-center gap-3 p-4 rounded-[var(--r-lg)] border-2 text-left transition-all",
+                active
+                  ? "border-[var(--brand)] bg-[var(--brand-soft)]"
+                  : "border-[var(--border-subtle)] bg-[var(--surface)] hover:border-[var(--border-default)]",
+              )}
+            >
+              <span className="text-3xl">{opt.icon}</span>
+              <div className="min-w-0">
+                <p className="font-semibold text-[var(--text-primary)]">{opt.label}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  {opt.value === "yoto"
+                    ? "Auto-uploaded to your Yoto card library"
+                    : "Downloaded as MP3 for iPod sync"}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Step: Type ─────────────────────────────────────────────────────────── */
+function TypeStep({ value, onChange }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+          What kind of content?
+        </h2>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          Music downloads automatically. Audiobooks need a manual upload.
+        </p>
+      </div>
+      <SegmentedControl
+        size="lg"
+        fullWidth
+        value={value}
+        onChange={onChange}
+        options={TYPE_OPTIONS}
+      />
+      {value === "audiobook" && (
+        <p className="text-xs text-[var(--text-muted)] flex items-start gap-1.5 mt-2">
+          <Book className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          You'll source the audiobook file yourself, then upload it to the
+          device. JamJar keeps it on the to-do list.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Step: Source ──────────────────────────────────────────────────────── */
+function SourceStep(props) {
+  const {
+    type,
+    source,
+    onSourceChange,
+    query,
+    results,
+    searching,
+    searchedOnce,
+    selectedTrack,
+    duplicateCount,
+    onSearch,
+    onSelectTrack,
+    urlInput,
+    urlTitle,
+    urlPreview,
+    urlLoading,
+    urlError,
+    onUrlChange,
+    onUrlTitleChange,
+    onClearUrl,
+  } = props;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+          {type === "audiobook"
+            ? "Search for an audiobook"
+            : "Find a track"}
+        </h2>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          {type === "audiobook"
+            ? "Searches Open Library — used to identify the book a grown-up will source for you."
+            : "Search YouTube or paste a link if you already have the exact video."}
+        </p>
+      </div>
+
+      {/* Music sub-mode */}
+      {type === "music" && (
+        <SegmentedControl
+          value={source}
+          onChange={onSourceChange}
+          options={SOURCE_OPTIONS}
+          ariaLabel="Search method"
+        />
+      )}
+
+      {type === "audiobook" || source === "search" ? (
+        <div className="space-y-3">
+          <SearchField
+            value={query}
+            onChange={onSearch}
+            placeholder={
+              type === "audiobook"
+                ? "e.g. Charlotte's Web, Roald Dahl…"
+                : "Try a song name, artist, or both"
+            }
+            loading={searching}
+            size="lg"
+          />
+
+          {/* States */}
+          {!searchedOnce && !selectedTrack && (
+            <p className="text-xs text-[var(--text-muted)] px-1">
+              {type === "audiobook"
+                ? "Pulls from openlibrary.org · grown-ups upload the file later."
+                : query.length === 0
+                  ? "Tip: include artist + song for the best match."
+                  : "Keep typing…"}
+            </p>
           )}
 
-          {/* Music: URL paste mode */}
-          {trackType === "music" && musicMode === "url" && (
-            <UrlPasteMode
-              urlInput={urlInput}
-              urlTitle={urlTitle}
-              urlPreview={urlPreview}
-              urlLoading={urlLoading}
-              urlError={urlError}
-              onUrlChange={handleUrlInput}
-              onTitleChange={setUrlTitle}
-              onClear={() => {
-                setUrlInput("");
-                setUrlTitle("");
-                setUrlPreview(null);
-                setUrlError(null);
-              }}
+          {searchedOnce && !searching && results.length === 0 && !selectedTrack && (
+            <EmptyState
+              icon={<Search className="w-5 h-5" />}
+              title="Nothing matched"
+              description={
+                type === "audiobook"
+                  ? "Try a different title or author."
+                  : "Try a different spelling or include the artist."
+              }
             />
           )}
 
-          {/* Audiobook: Search Open Library */}
-          {trackType === "audiobook" && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Search for an audiobook by title or author
-                </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  A parent will source and upload the audiobook for you.
-                </p>
-              </div>
-              <SearchInput
-                value={searchQuery}
-                onChange={handleBookSearch}
-                placeholder="e.g. Harry Potter, Roald Dahl..."
-                loading={searching}
-              />
-              <SearchResultList
-                results={searchResults}
-                onSelect={(r) => {
-                  setSelectedTrack(r);
-                  setSearchQuery(r.title);
-                  setSearchResults([]);
-                }}
-                renderItem={(r) => <BookResultItem result={r} />}
-              />
-              {selectedTrack && (
-                <SelectedBookPreview book={selectedTrack} />
-              )}
-            </>
+          {results.length > 0 && (
+            <div className="border border-[var(--border-subtle)] rounded-[var(--r-lg)] divide-y divide-[var(--border-subtle)] overflow-hidden max-h-80 overflow-y-auto bg-[var(--surface)]">
+              {results.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => onSelectTrack(r)}
+                  className="w-full flex items-start gap-3 p-3 text-left hover:bg-[var(--surface-2)] transition-colors"
+                >
+                  {r.thumbnail ? (
+                    <img
+                      src={r.thumbnail}
+                      alt=""
+                      className={cx(
+                        "rounded object-cover bg-[var(--surface-2)] flex-shrink-0",
+                        type === "audiobook" ? "w-10 h-14" : "w-12 h-12",
+                      )}
+                    />
+                  ) : (
+                    <div
+                      className={cx(
+                        "rounded bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-muted)] flex-shrink-0",
+                        type === "audiobook" ? "w-10 h-14" : "w-12 h-12",
+                      )}
+                    >
+                      {type === "audiobook" ? (
+                        <Book className="w-4 h-4" />
+                      ) : (
+                        <Music className="w-4 h-4" />
+                      )}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                      {r.title}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">
+                      {type === "audiobook"
+                        ? `${r.author}${r.year ? ` · ${r.year}` : ""}`
+                        : r.duration || "—"}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
 
-          <motion.button
-            type="submit"
-            disabled={!canSubmit}
-            whileHover={canSubmit ? { scale: 1.02 } : {}}
-            whileTap={canSubmit ? { scale: 0.98 } : {}}
-            className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
-              canSubmit
-                ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-lg"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {trackType === "audiobook" ? "Request Audiobook 📚" : "Send Request 🚀"}
-          </motion.button>
-        </form>
-      </motion.div>
-    </div>
-  );
-}
-
-// --- Sub-components ---
-
-function SearchInput({ value, onChange, placeholder, loading }) {
-  return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:outline-none transition-colors text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-      />
-      {loading && (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          {selectedTrack && (
+            <SelectedTrackCard
+              track={selectedTrack}
+              type={type}
+              duplicateCount={duplicateCount}
+            />
+          )}
+        </div>
+      ) : (
+        <UrlPasteSection
+          urlInput={urlInput}
+          urlTitle={urlTitle}
+          urlPreview={urlPreview}
+          urlLoading={urlLoading}
+          urlError={urlError}
+          onUrlChange={onUrlChange}
+          onUrlTitleChange={onUrlTitleChange}
+          onClearUrl={onClearUrl}
+        />
       )}
     </div>
   );
 }
 
-function SearchResultList({ results, onSelect, renderItem }) {
-  if (results.length === 0) return null;
+function SelectedTrackCard({ track, type, duplicateCount }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="border-2 border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800 shadow-lg max-h-72 overflow-y-auto"
-    >
-      {results.map((result) => (
-        <motion.button
-          key={result.id}
-          type="button"
-          onClick={() => onSelect(result)}
-          className="w-full px-4 py-3 flex items-center gap-3 text-left border-b last:border-b-0 border-gray-100 dark:border-gray-700 hover:bg-purple-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          {renderItem(result)}
-        </motion.button>
-      ))}
-    </motion.div>
-  );
-}
-
-function MusicResultItem({ result }) {
-  return (
-    <>
-      {result.thumbnail ? (
-        <img
-          src={result.thumbnail}
-          alt=""
-          className="w-12 h-12 rounded object-cover bg-gray-200 dark:bg-gray-600 flex-shrink-0"
-        />
-      ) : (
-        <div className="w-12 h-12 rounded bg-gray-200 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
-          <Music className="w-5 h-5 text-gray-400" />
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-800 dark:text-gray-200 truncate">
-          {result.title}
-        </p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {result.duration}
-        </p>
-      </div>
-    </>
-  );
-}
-
-function BookResultItem({ result }) {
-  return (
-    <>
-      {result.thumbnail ? (
-        <img
-          src={result.thumbnail}
-          alt=""
-          className="w-10 h-14 rounded object-cover bg-gray-200 dark:bg-gray-600 flex-shrink-0"
-        />
-      ) : (
-        <div className="w-10 h-14 rounded bg-gray-200 dark:bg-gray-600 flex-shrink-0 flex items-center justify-center">
-          <Book className="w-5 h-5 text-gray-400" />
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-800 dark:text-gray-200 truncate">
-          {result.title}
-        </p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {result.author}
-          {result.year ? ` · ${result.year}` : ""}
-        </p>
-      </div>
-    </>
-  );
-}
-
-function SelectedMusicPreview({ track }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg p-4"
-    >
-      <div className="flex items-center gap-4">
-        {track.thumbnail && (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 p-3 bg-[var(--brand-soft)] border border-[var(--brand-soft-strong)] rounded-[var(--r-lg)]">
+        {track.thumbnail ? (
           <img
             src={track.thumbnail}
             alt=""
-            className="w-16 h-16 rounded-lg object-cover"
+            className={cx(
+              "rounded object-cover bg-[var(--surface-2)] flex-shrink-0",
+              type === "audiobook" ? "w-10 h-14" : "w-12 h-12",
+            )}
           />
-        )}
-        <div>
-          <h3 className="font-bold text-gray-800 dark:text-gray-200">
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-[var(--brand)] uppercase tracking-wide mb-0.5">
+            Selected
+          </p>
+          <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
             {track.title}
-          </h3>
-          {track.duration && (
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {track.duration}
-            </p>
-          )}
+          </p>
+          <p className="text-xs text-[var(--text-secondary)] truncate">
+            {type === "audiobook" ? `by ${track.author}` : track.duration || "—"}
+          </p>
         </div>
+        <CheckCircle className="w-5 h-5 text-[var(--brand)] flex-shrink-0" />
       </div>
-    </motion.div>
+      {duplicateCount > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-[var(--warning-soft)] border border-[var(--warning-border)] rounded-[var(--r-md)]">
+          <AlertTriangle className="w-4 h-4 text-[var(--warning)] flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-[var(--text-secondary)]">
+            <span className="font-medium text-[var(--text-primary)]">Already downloaded.</span>{" "}
+            This title is in the library {duplicateCount}{" "}
+            time{duplicateCount !== 1 ? "s" : ""}. You can add it again if you
+            need another copy.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
-function SelectedBookPreview({ book }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg p-4"
-    >
-      <div className="flex items-center gap-4">
-        {book.thumbnail && (
-          <img
-            src={book.thumbnail}
-            alt=""
-            className="w-12 h-16 rounded object-cover"
-          />
-        )}
-        <div>
-          <h3 className="font-bold text-gray-800 dark:text-gray-200">
-            {book.title}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            by {book.author}
-          </p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-            📬 Parent will upload this for you
-          </p>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function UrlPasteMode({
+function UrlPasteSection({
   urlInput,
   urlTitle,
   urlPreview,
   urlLoading,
   urlError,
   onUrlChange,
-  onTitleChange,
-  onClear,
+  onUrlTitleChange,
+  onClearUrl,
 }) {
-  const isValid = isYouTubeUrl(urlInput);
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          YouTube link
-        </label>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          Paste a YouTube video or playlist URL — useful when search doesn't
-          find the right version.
-        </p>
+        <Label htmlFor="yt-url" hint="Works for any YouTube video. Playlists pull the first track only.">
+          YouTube URL
+        </Label>
         <div className="relative">
-          <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="url"
+          <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
+          <Input
+            id="yt-url"
+            size="lg"
             value={urlInput}
             onChange={(e) => onUrlChange(e.target.value)}
-            placeholder="https://youtube.com/watch?v=..."
-            className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:outline-none transition-colors text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+            placeholder="https://youtube.com/watch?v=…"
+            className="pl-10 pr-10"
           />
-          {urlInput && (
+          {urlLoading && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--brand)] animate-spin" />
+          )}
+          {urlInput && !urlLoading && (
             <button
               type="button"
-              onClick={onClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={onClearUrl}
+              aria-label="Clear"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1"
             >
-              <X className="w-4 h-4" />
+              ×
             </button>
-          )}
-          {urlLoading && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
           )}
         </div>
         {urlError && (
-          <p className="text-sm text-red-500 dark:text-red-400 mt-1.5">{urlError}</p>
+          <p className="text-sm text-[var(--danger)] mt-2 flex items-start gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            {urlError}
+          </p>
         )}
       </div>
 
       <AnimatePresence>
-        {isValid && (
+        {isYouTubeUrl(urlInput) && !urlError && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -665,34 +741,190 @@ function UrlPasteMode({
             className="space-y-3"
           >
             {urlPreview?.thumbnail && (
-              <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+              <div className="flex items-center gap-3 p-3 bg-[var(--surface-2)] rounded-[var(--r-lg)] border border-[var(--border-subtle)]">
                 <img
                   src={urlPreview.thumbnail}
                   alt=""
                   className="w-20 h-14 rounded object-cover"
                 />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Video found ✓
-                  </p>
+                <div className="min-w-0">
+                  <Badge tone="success" size="xs" icon={<CheckCircle className="w-3 h-3" />}>
+                    Video found
+                  </Badge>
+                  {urlPreview.title && (
+                    <p className="text-sm text-[var(--text-primary)] mt-1 line-clamp-2">
+                      {urlPreview.title}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Song title (edit if needed)
-              </label>
-              <input
-                type="text"
+              <Label htmlFor="yt-title" hint="Becomes the library title — keep it tidy.">
+                Title
+              </Label>
+              <Input
+                id="yt-title"
+                size="lg"
                 value={urlTitle}
-                onChange={(e) => onTitleChange(e.target.value)}
-                placeholder="Enter the song name..."
-                className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:outline-none transition-colors text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                onChange={(e) => onUrlTitleChange(e.target.value)}
+                placeholder="e.g. Artist — Song name"
               />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/* ─── Step: Confirm ──────────────────────────────────────────────────────── */
+function ConfirmStep({
+  profile,
+  type,
+  source,
+  selectedTrack,
+  urlInput,
+  urlTitle,
+  urlPreview,
+  duplicateCount,
+  isParent,
+}) {
+  const title =
+    type === "audiobook" && selectedTrack
+      ? `${selectedTrack.title} — ${selectedTrack.author}`
+      : source === "search" && selectedTrack
+        ? selectedTrack.title
+        : urlTitle.trim() || urlPreview?.title || "Untitled YouTube track";
+
+  const thumbnail =
+    selectedTrack?.thumbnail || urlPreview?.thumbnail || null;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+          Ready to send?
+        </h2>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          {isParent
+            ? "Parent submissions are auto-approved."
+            : "A grown-up will review this and approve or reject it."}
+        </p>
+      </div>
+
+      <div className="flex items-start gap-3 p-4 border border-[var(--border-subtle)] rounded-[var(--r-lg)] bg-[var(--surface-2)]">
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            alt=""
+            className={cx(
+              "rounded object-cover bg-[var(--surface-2)] flex-shrink-0",
+              type === "audiobook" ? "w-12 h-16" : "w-16 h-16",
+            )}
+          />
+        ) : (
+          <div
+            className={cx(
+              "rounded bg-[var(--surface)] flex items-center justify-center text-[var(--text-muted)] flex-shrink-0",
+              type === "audiobook" ? "w-12 h-16" : "w-16 h-16",
+            )}
+          >
+            {type === "audiobook" ? (
+              <Book className="w-5 h-5" />
+            ) : (
+              <Music className="w-5 h-5" />
+            )}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">
+            {title}
+          </p>
+          <div className="flex items-center flex-wrap gap-1.5 mt-2">
+            <Badge tone={profile === "yoto" ? "yoto" : "ipod"} size="xs">
+              {profile === "yoto" ? "📻 Yoto" : "🎧 iPod"}
+            </Badge>
+            <Badge tone={type === "audiobook" ? "info" : "neutral"} size="xs">
+              {type === "audiobook" ? "Audiobook" : "Music"}
+            </Badge>
+            {selectedTrack?.duration && selectedTrack.duration !== "Unknown" && (
+              <Badge tone="neutral" size="xs">
+                {selectedTrack.duration}
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* What happens next */}
+      <div className="text-sm text-[var(--text-secondary)] space-y-2 p-3 bg-[var(--info-soft)] border border-[var(--info-border)] rounded-[var(--r-md)]">
+        <p className="font-medium text-[var(--text-primary)]">What happens next:</p>
+        <ul className="space-y-1 text-[var(--text-secondary)]">
+          {!isParent && (
+            <li>• A grown-up will review your request.</li>
+          )}
+          {type === "audiobook" ? (
+            <>
+              <li>• It joins the <strong>Needs upload</strong> list on the dashboard.</li>
+              <li>• A grown-up sources the file and uploads it to the device.</li>
+            </>
+          ) : (
+            <>
+              <li>• {isParent ? "It starts downloading immediately." : "Once approved, it starts downloading."}</li>
+              <li>• You'll see it under <strong>Library → Ready</strong> when it's done.</li>
+            </>
+          )}
+        </ul>
+      </div>
+
+      {duplicateCount > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-[var(--warning-soft)] border border-[var(--warning-border)] rounded-[var(--r-md)]">
+          <AlertTriangle className="w-4 h-4 text-[var(--warning)] flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-[var(--text-secondary)]">
+            <span className="font-medium text-[var(--text-primary)]">Heads up:</span>{" "}
+            this title is already in the library {duplicateCount}× — adding it
+            again will create a duplicate.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Success ────────────────────────────────────────────────────────────── */
+function SuccessCard({ submitted, onAddAnother }) {
+  const { type, isParent, profile } = submitted;
+  return (
+    <motion.div
+      initial={{ scale: 0.95, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className="max-w-md mx-auto mt-12"
+    >
+      <Card padding="lg" className="border-[var(--success-border)] bg-[var(--success-soft)] text-center">
+        <div className="w-14 h-14 rounded-full bg-[var(--success-solid)] text-white flex items-center justify-center mx-auto mb-4">
+          <CheckCircle className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-bold text-[var(--text-primary)]">
+          {isParent
+            ? type === "audiobook"
+              ? "Added to the upload list"
+              : `Sent to ${profile === "yoto" ? "Yoto" : "iPod"}`
+            : "Request sent!"}
+        </h2>
+        <p className="text-sm text-[var(--text-secondary)] mt-2 max-w-xs mx-auto">
+          {isParent
+            ? type === "audiobook"
+              ? "Open Dashboard → Needs upload to finish the audiobook flow."
+              : "Track the download in Dashboard → Library."
+            : "A grown-up will review it soon. You'll see it on your requests page."}
+        </p>
+        <div className="flex items-center justify-center gap-2 mt-5">
+          <Button variant="primary" onClick={onAddAnother}>
+            Add another
+          </Button>
+        </div>
+      </Card>
+    </motion.div>
   );
 }
